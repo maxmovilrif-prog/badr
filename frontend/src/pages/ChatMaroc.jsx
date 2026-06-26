@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import {
   Send, Mic, Square, Camera, Sparkles, Loader2, Volume2, VolumeX,
   Menu, X, ChevronDown, Hand, AudioLines, Paperclip, Globe, FileText, ExternalLink, Settings,
+  Share2, Download,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup,
@@ -12,6 +13,8 @@ import {
 import { Sidebar } from "@/components/Sidebar";
 import { SignLanguageRecorder } from "@/components/SignLanguageRecorder";
 import { SettingsModal } from "@/components/SettingsModal";
+import { ShareModal } from "@/components/ShareModal";
+import { exportConversationPdf } from "@/lib/exportPdf";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -70,6 +73,9 @@ export default function ChatMaroc() {
   const [webSearchAvailable, setWebSearchAvailable] = useState(false);
   const [searchingMsgId, setSearchingMsgId] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showShare, setShowShare] = useState(false);
+  const [shareUrl, setShareUrl] = useState("");
+  const [exporting, setExporting] = useState(false);
 
   const scrollRef = useRef(null);
   const audioRecorderRef = useRef(null);
@@ -396,6 +402,36 @@ export default function ChatMaroc() {
 
   const currentLangLabel = languages.find((l) => l.key === language)?.label || "Darija";
   const currentVoice = VOICES.find((v) => v.id === voice)?.name || "Nova";
+  const activeTitle = conversations.find((c) => c.id === activeId)?.title || "ChatMaroc conversation";
+  const hasMessages = messages.some((m) => (m.content || "").trim());
+
+  const handleShare = async () => {
+    if (!activeId || !hasMessages) { toast.error("Start a conversation first."); return; }
+    try {
+      const r = await fetch(`${API}/conversations/${activeId}/share`, { method: "POST" });
+      const d = await r.json();
+      if (!d.share_token) throw new Error();
+      const url = `${window.location.origin}/share/${d.share_token}`;
+      setShareUrl(url);
+      setShowShare(true);
+      try { await navigator.clipboard.writeText(url); toast.success("Share link copied"); } catch {}
+    } catch {
+      toast.error("Could not create share link.");
+    }
+  };
+
+  const handleExport = async () => {
+    if (!hasMessages) { toast.error("Nothing to export yet."); return; }
+    setExporting(true);
+    try {
+      await exportConversationPdf(activeTitle, messages);
+      toast.success("PDF downloaded");
+    } catch {
+      toast.error("Could not export PDF.");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 flex overflow-hidden text-white font-body">
@@ -469,6 +505,25 @@ export default function ChatMaroc() {
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={handleExport}
+              disabled={exporting}
+              className="hidden sm:inline-flex p-2 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-50"
+              aria-label="Export conversation as PDF"
+              title="Export as PDF"
+              data-testid="export-pdf-button"
+            >
+              {exporting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
+            </button>
+            <button
+              onClick={handleShare}
+              className="hidden sm:inline-flex p-2 rounded-full text-slate-400 hover:text-cyan-300 hover:bg-white/10 transition-colors"
+              aria-label="Share conversation link"
+              title="Share read-only link"
+              data-testid="share-button"
+            >
+              <Share2 className="w-5 h-5" />
+            </button>
             <button
               onClick={() => setShowSettings(true)}
               className="p-2 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
@@ -765,6 +820,18 @@ export default function ChatMaroc() {
       <AnimatePresence>
         {showSettings && (
           <SettingsModal api={API} onClose={() => setShowSettings(false)} />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showShare && (
+          <ShareModal
+            api={API}
+            url={shareUrl}
+            conversationId={activeId}
+            onClose={() => setShowShare(false)}
+            onUnshared={() => loadConversations()}
+          />
         )}
       </AnimatePresence>
     </div>

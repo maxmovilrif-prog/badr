@@ -504,6 +504,71 @@ def test_cleanup_new_feature_sessions(session):
             pass
 
 
+# ---- Share / Unshare / Shared (NEW) ----
+SHARE_CLIENT_ID = f"TEST_share_{uuid.uuid4().hex[:8]}"
+
+
+def test_share_unshare_shared_flow(session):
+    # create conv
+    r = session.post(f"{API}/conversations", json={"client_id": SHARE_CLIENT_ID}, timeout=10)
+    assert r.status_code == 200
+    conv_id = r.json()["id"]
+
+    # send a message so there is content to share
+    with session.post(
+        f"{API}/chat",
+        json={"session_id": conv_id, "message": "Hello, short hi.", "language": "english", "kind": "text"},
+        stream=True, timeout=60,
+    ) as rr:
+        assert rr.status_code == 200
+        for line in rr.iter_lines(decode_unicode=True):
+            if line and '"done"' in line:
+                break
+
+    # share -> returns token, is_shared True
+    s1 = session.post(f"{API}/conversations/{conv_id}/share", timeout=10)
+    assert s1.status_code == 200, s1.text
+    d1 = s1.json()
+    assert d1["is_shared"] is True
+    assert isinstance(d1["share_token"], str) and len(d1["share_token"]) > 8
+    token = d1["share_token"]
+
+    # idempotent — second call returns same token
+    s2 = session.post(f"{API}/conversations/{conv_id}/share", timeout=10)
+    assert s2.status_code == 200
+    assert s2.json()["share_token"] == token
+
+    # GET shared
+    g = session.get(f"{API}/shared/{token}", timeout=10)
+    assert g.status_code == 200, g.text
+    body = g.json()
+    assert "title" in body
+    assert isinstance(body["messages"], list) and len(body["messages"]) >= 2
+    roles = [m["role"] for m in body["messages"]]
+    assert "user" in roles and "assistant" in roles
+
+    # unknown token -> 404
+    g404 = session.get(f"{API}/shared/{uuid.uuid4().hex}", timeout=10)
+    assert g404.status_code == 404
+
+    # unshare
+    u = session.post(f"{API}/conversations/{conv_id}/unshare", timeout=10)
+    assert u.status_code == 200
+    assert u.json()["is_shared"] is False
+
+    # GET shared now 404
+    g2 = session.get(f"{API}/shared/{token}", timeout=10)
+    assert g2.status_code == 404
+
+    # cleanup
+    session.delete(f"{API}/conversations/{conv_id}", timeout=10)
+
+
+def test_share_nonexistent_conversation(session):
+    r = session.post(f"{API}/conversations/{uuid.uuid4().hex}/share", timeout=10)
+    assert r.status_code == 404
+
+
 def test_cleanup_remaining_conversations(session):
     # Final cleanup: delete remaining test conversations
     r = session.get(f"{API}/conversations", params={"client_id": CLIENT_ID}, timeout=10)

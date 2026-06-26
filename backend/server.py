@@ -103,6 +103,8 @@ class Conversation(BaseModel):
     client_id: str
     title: str = "New chat"
     preview: str = ""
+    is_shared: bool = False
+    share_token: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
@@ -239,6 +241,34 @@ async def delete_conversation(conversation_id: str):
     await db.messages.delete_many({"session_id": conversation_id})
     res = await db.conversations.delete_one({"id": conversation_id})
     return {"deleted": res.deleted_count}
+
+
+@api_router.post("/conversations/{conversation_id}/share")
+async def share_conversation(conversation_id: str):
+    conv = await db.conversations.find_one({"id": conversation_id}, {"_id": 0})
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    token = conv.get("share_token") or uuid.uuid4().hex
+    await db.conversations.update_one(
+        {"id": conversation_id},
+        {"$set": {"share_token": token, "is_shared": True}},
+    )
+    return {"share_token": token, "is_shared": True}
+
+
+@api_router.post("/conversations/{conversation_id}/unshare")
+async def unshare_conversation(conversation_id: str):
+    await db.conversations.update_one({"id": conversation_id}, {"$set": {"is_shared": False}})
+    return {"is_shared": False}
+
+
+@api_router.get("/shared/{share_token}")
+async def get_shared_conversation(share_token: str):
+    conv = await db.conversations.find_one({"share_token": share_token, "is_shared": True}, {"_id": 0})
+    if not conv:
+        raise HTTPException(status_code=404, detail="Shared conversation not found or no longer public")
+    msgs = await db.messages.find({"session_id": conv["id"]}, {"_id": 0}).sort("timestamp", 1).to_list(2000)
+    return {"title": conv.get("title", "Shared chat"), "messages": msgs, "shared_at": conv.get("updated_at")}
 
 
 @api_router.get("/messages/{session_id}", response_model=List[Message])

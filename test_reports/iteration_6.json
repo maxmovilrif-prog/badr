@@ -1,0 +1,34 @@
+{
+  "summary": "Iteration 6 — validated the two NEW features: (1) SHARE conversation (POST /api/conversations/{id}/share, POST .../unshare, GET /api/shared/{token}, ShareModal + public /share/:token page), and (2) EXPORT conversation as PDF (jsPDF + html2canvas, export-pdf-button in top bar). Backend: extended /app/backend/tests/test_chatmaroc_api.py with 2 new pytest tests (test_share_unshare_shared_flow, test_share_nonexistent_conversation). Full suite = 32/32 passing in 44.8s against REACT_APP_BACKEND_URL. Verified: POST /api/conversations/{id}/share returns {share_token, is_shared:true} and is IDEMPOTENT (second call returns the same token); GET /api/shared/{token} returns {title, messages[]} with both user+assistant roles; GET with unknown token -> 404; POST .../unshare sets is_shared:false and subsequent GET /api/shared/{token} -> 404; POST /api/conversations/{nonexistent_id}/share -> 404. Frontend e2e on production preview URL @ 1440x900 desktop: (a) Sent a real message ('Say hi in one short sentence.'), assistant streamed reply within ~5s. (b) share-button and export-pdf-button are visible at desktop width (hidden sm:inline-flex confirmed). (c) Clicking [data-testid=share-button] POSTs share, opens [data-testid=share-modal] with [data-testid=share-url-input] containing https://darija-chat-ai.preview.emergentagent.com/share/<32-char hex token>; [data-testid=copy-link-button] click succeeded (toast 'Share link copied' + 'Link copied'); navigating directly to /share/<token> in a fresh tab renders [data-testid=shared-title] with the auto-derived conversation title and [data-testid=shared-messages] containing 2 bubbles (user + assistant); [data-testid=open-chatmaroc-button] href='/'. (d) Clicking [data-testid=stop-sharing-button] called POST /api/conversations/{id}/unshare and closed the modal (count=0); re-loading the /share/<token> URL then rendered [data-testid=shared-error] with text 'Conversation not available · This link is invalid or sharing was turned off.' as expected. (e) PDF EXPORT — Playwright page.expect_download() around [data-testid=export-pdf-button] click captured a download named 'ChatMaroc-Say_hi_in_one_short_sentence_.pdf' (starts with 'ChatMaroc-', ends with '.pdf'); no JS console errors; the button briefly shows a spinner (exporting state) and a 'PDF downloaded' toast appears (visible in screenshot). (f) Regression — [data-testid=settings-button] opens [data-testid=settings-modal]; [data-testid=sign-language-record-button] opens [data-testid=sign-language-modal]; [data-testid=language-selector] present in the sidebar; web-search-toggle + searching indicator + sources still work (covered by previous iteration and backend test_web_search_chat_streams_sources_and_answer still passing in this suite). No JS console errors during any flow.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_chatmaroc_api.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Nice-to-have: POST /api/conversations/{id}/share should also touch updated_at so the 'shared_at' surfaced in GET /api/shared/{token} reflects when sharing was enabled — currently it only changes when messages are sent/title is renamed.",
+    "Nice-to-have: GET /api/shared/{token} returns assistant messages with their sources[] (good for citations), but the SharedChat.jsx UI only renders sources for assistant bubbles — confirmed working; consider adding a small 'Web-search' badge above the assistant bubble in SharedChat for parity with the in-app UX.",
+    "Minor: exportPdf.js builds an off-screen DOM at 720px and uses html2canvas at scale 2 — for very long chats this can be memory-heavy; consider chunking pages or using jsPDF.html() with a pixel budget. Not blocking.",
+    "Minor: exportPdf.js filename sanitization keeps the trailing underscore in 'ChatMaroc-Say_hi_in_one_short_sentence_.pdf' — purely cosmetic; consider trimming trailing _ before .pdf.",
+    "Minor (carried over): logger is configured AFTER it is referenced inside async route handlers; functional but cleaner to move logging.basicConfig + getLogger above the routes.",
+    "Minor (carried over): /api/chat-with-file persists assistant reply with kind='text' even though user message is kind='file'; UI re-render of history loses the file badge."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_chatmaroc_api.py",
+    "/app/test_reports/iteration_6.json",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "success_rate": {"backend": "100% (32/32 pytest)", "frontend": "100% of targeted flows (share, public page, unshare, PDF export, settings, sign modal regression)"},
+  "test_credentials": "N/A (no auth)",
+  "seed_data_creation": "Share test creates a TEST_share_<uuid> client_id with a real conversation + one message, then deletes the conversation at the end of the test. Module teardown deletes messages/conversations for WS/CF/main sessions.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend test file now has 32 tests (2 new share tests). Share flow API contract: POST /api/conversations/{id}/share returns {share_token, is_shared:true} idempotently (reuses existing token); POST .../unshare returns {is_shared:false} but keeps the share_token in DB (so re-sharing yields the same token); GET /api/shared/{token} requires is_shared==True else 404. Frontend: share-button + export-pdf-button are hidden on viewports <640px (className 'hidden sm:inline-flex') — always test at width>=1280. handleShare in ChatMaroc.jsx requires both activeId AND hasMessages (at least one message with non-empty content). For PDF export Playwright tests, always wrap the click with `async with page.expect_download() as dl_info:` — the file is saved by jsPDF.save() in-browser. SharedChat.jsx uses react-router useParams; the public route is /share/:token in App.js. ShareModal also auto-copies the link to clipboard via navigator.clipboard.writeText on open (handleShare), then the explicit Copy button can re-copy.",
+  "rca of the issue": "No bugs found. Backend share contract is idempotent and correctly returns 404 for unshared/unknown tokens. Frontend ShareModal + SharedChat + exportConversationPdf all work end-to-end on the production preview URL."
+}
