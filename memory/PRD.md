@@ -28,8 +28,9 @@ Build a full-stack AI assistant "ChatMaroc": React chat UI with text + voice mes
 - Multi-conversation backend: conversations CRUD (create/list/rename/delete) scoped by client_id; chat auto-titles a conversation from its first message; delete cascades to messages.
 - LIVE WEB SEARCH (Tavily + Claude): /api/web-search-chat streams an answer with inline [n] citations and premium source CARDS (title + text snippet + domain) under the reply; globe toggle gated by /api/features; sources persisted with the assistant message.
 - FILE UPLOAD + ANALYSIS (Gemini gemini-2.5-flash via Emergent key): /api/chat-with-file accepts images (png/jpg/webp/gif) and docs (pdf/txt/csv, ≤20MB); paperclip attach button + pending-file chip in the UI.
-- AUTO UPLOAD CLEANUP: background task deletes uploads (sign videos/audio/files) older than 6h every 30min + runs on startup; manual POST /api/admin/cleanup-uploads endpoint.
-- Verified: iter 1 (9/9) + iter 2 (12/12) + iter 3 (19/19) + iter 4 (27/27) backend tests pass; web-search snippet + cleanup verified via curl; all critical frontend flows pass each iteration.
+- AUTO UPLOAD CLEANUP: background task deletes uploads (sign videos/audio/files) older than a configurable retention period (default 6h) every 30min + on startup; manual POST /api/admin/cleanup-uploads; retention persisted in db.settings via GET/PUT /api/settings (clamped 1h..30d).
+- UX polish: animated shimmering "Searching the web…" indicator during live web searches; Settings modal (gear icon) to pick file-retention period + clean now; premium source cards (title + snippet + domain).
+- Verified: iter 1 (9/9) + iter 2 (12/12) + iter 3 (19/19) + iter 4 (27/27) + iter 5 (30/30) backend tests pass; all critical frontend flows pass each iteration.
 
 ## Integrations / Keys
 - EMERGENT_LLM_KEY (Claude text, Gemini files, Whisper STT, OpenAI TTS).

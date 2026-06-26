@@ -74,7 +74,7 @@ export const SettingsModal = ({ api, onClose }) => {
       data-testid="settings-modal"
     >
       <motion.div
-        className="w-full max-w-md bg-black/60 backdrop-blur-2xl rounded-3xl shadow-2xl overflow-hidden border border-white/10"
+        className="w-full max-w-md bg-slate-900/90 backdrop-blur-2xl rounded-3xl shadow-2xl overflow-hidden border border-white/10"
         initial={{ scale: 0.95, y: 20 }}
         animate={{ scale: 1, y: 0 }}
       >
@@ -108,6 +108,7 @@ export const SettingsModal = ({ api, onClose }) => {
                 </div>
                 <p className="text-xs text-slate-400 mb-3">
                   Uploaded videos, images & PDFs are auto-deleted after this period to keep things fast.
+                  <span className="block mt-1 text-slate-300">Currently: {hours} {hours === 1 ? "hour" : "hours"}</span>
                 </p>
                 <div className="grid grid-cols-3 gap-2">
                   {RETENTION_OPTIONS.map((o) => (
