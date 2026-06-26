@@ -5,6 +5,7 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import json
+import time
 import logging
 import random
 import asyncio
@@ -41,6 +42,10 @@ AUDIO_DIR = UPLOAD_DIR / 'audio'
 FILES_DIR = UPLOAD_DIR / 'files'
 for d in (SIGN_DIR, AUDIO_DIR, FILES_DIR):
     d.mkdir(parents=True, exist_ok=True)
+
+# Periodic upload cleanup config
+UPLOAD_TTL_SECONDS = int(os.environ.get('UPLOAD_TTL_SECONDS', str(6 * 3600)))  # delete files older than 6h
+CLEANUP_INTERVAL_SECONDS = int(os.environ.get('CLEANUP_INTERVAL_SECONDS', str(30 * 60)))  # every 30 min
 
 app = FastAPI(title="ChatMaroc API")
 api_router = APIRouter(prefix="/api")
@@ -354,7 +359,14 @@ async def web_search_chat(req: ChatRequest):
         raise HTTPException(status_code=503, detail=str(e))
 
     results = search.get("results", []) if isinstance(search, dict) else []
-    sources = [{"title": r.get("title") or r.get("url"), "url": r.get("url")} for r in results if r.get("url")]
+    sources = [
+        {
+            "title": r.get("title") or r.get("url"),
+            "url": r.get("url"),
+            "snippet": (r.get("content") or "").strip()[:220],
+        }
+        for r in results if r.get("url")
+    ]
     context = "\n\n".join(
         f"[{i + 1}] {r.get('title', '')}\nURL: {r.get('url', '')}\n{(r.get('content') or '')[:1200]}"
         for i, r in enumerate(results)
@@ -401,6 +413,29 @@ async def web_search_chat(req: ChatRequest):
 @api_router.get("/features")
 async def get_features():
     return {"web_search": bool(TAVILY_API_KEY and TavilyClient is not None)}
+
+
+def cleanup_old_uploads(ttl_seconds: int = UPLOAD_TTL_SECONDS) -> int:
+    """Delete uploaded files (sign videos, audio, attachments) older than ttl_seconds."""
+    now = time.time()
+    removed = 0
+    for d in (SIGN_DIR, AUDIO_DIR, FILES_DIR):
+        for p in d.glob("*"):
+            try:
+                if p.is_file() and (now - p.stat().st_mtime) > ttl_seconds:
+                    p.unlink()
+                    removed += 1
+            except Exception as e:
+                logger.error(f"Cleanup error for {p}: {e}")
+    if removed:
+        logger.info(f"Upload cleanup removed {removed} old file(s)")
+    return removed
+
+
+@api_router.post("/admin/cleanup-uploads")
+async def admin_cleanup_uploads(ttl_seconds: Optional[int] = None):
+    removed = cleanup_old_uploads(ttl_seconds if ttl_seconds is not None else UPLOAD_TTL_SECONDS)
+    return {"removed": removed, "ttl_seconds": ttl_seconds if ttl_seconds is not None else UPLOAD_TTL_SECONDS}
 
 
 @api_router.post("/transcribe")
@@ -504,6 +539,27 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+async def _cleanup_loop():
+    while True:
+        await asyncio.sleep(CLEANUP_INTERVAL_SECONDS)
+        try:
+            cleanup_old_uploads()
+        except Exception as e:
+            logger.error(f"Cleanup loop error: {e}")
+
+
+@app.on_event("startup")
+async def start_cleanup_task():
+    try:
+        cleanup_old_uploads()
+    except Exception as e:
+        logger.error(f"Initial cleanup error: {e}")
+    app.state.cleanup_task = asyncio.create_task(_cleanup_loop())
+
+
 @app.on_event("shutdown")
 async def shutdown_db_client():
+    task = getattr(app.state, "cleanup_task", None)
+    if task:
+        task.cancel()
     client.close()

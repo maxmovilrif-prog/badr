@@ -34,8 +34,11 @@ const SUGGESTIONS = [
   { label: "Plan a 3-day trip to Marrakech", sub: "Travel ideas" },
 ];
 
-const getClientId = () => {
-  let id = localStorage.getItem("chatmaroc_client");
+const domainOf = (url) => {
+  try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; }
+};
+
+const getClientId = () => {  let id = localStorage.getItem("chatmaroc_client");
   if (!id) {
     id = `cl_${Math.random().toString(36).slice(2)}_${Date.now()}`;
     localStorage.setItem("chatmaroc_client", id);
@@ -564,21 +567,30 @@ export default function ChatMaroc() {
                               <>
                                 <p className="whitespace-pre-wrap break-words text-slate-100 leading-relaxed" dir="auto">{m.content}</p>
                                 {m.sources && m.sources.length > 0 && (
-                                  <div className="mt-3 flex flex-wrap gap-2" data-testid="message-sources">
-                                    {m.sources.map((s, si) => (
-                                      <a
-                                        key={si}
-                                        href={s.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-1.5 max-w-[220px] text-xs text-slate-300 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full px-3 py-1.5 transition-colors"
-                                        data-testid={`source-link-${si}`}
-                                      >
-                                        <span className="text-cyan-300 font-medium">{si + 1}</span>
-                                        <span className="truncate">{s.title}</span>
-                                        <ExternalLink className="w-3 h-3 opacity-60 shrink-0" />
-                                      </a>
-                                    ))}
+                                  <div className="mt-3" data-testid="message-sources">
+                                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400 mb-2 flex items-center gap-1.5">
+                                      <Globe className="w-3 h-3" /> Sources
+                                    </p>
+                                    <div className="grid sm:grid-cols-2 gap-2">
+                                      {m.sources.map((s, si) => (
+                                        <a
+                                          key={si}
+                                          href={s.url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="block rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 p-3 transition-colors"
+                                          data-testid={`source-link-${si}`}
+                                        >
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-300 text-[11px] flex items-center justify-center font-medium shrink-0">{si + 1}</span>
+                                            <span className="truncate text-sm text-white font-medium flex-1">{s.title}</span>
+                                            <ExternalLink className="w-3 h-3 text-slate-400 shrink-0" />
+                                          </div>
+                                          {s.snippet && <p className="text-xs text-slate-400 line-clamp-2 leading-snug">{s.snippet}</p>}
+                                          <p className="text-[11px] text-cyan-400/70 mt-1 truncate">{domainOf(s.url)}</p>
+                                        </a>
+                                      ))}
+                                    </div>
                                   </div>
                                 )}
                                 <button
