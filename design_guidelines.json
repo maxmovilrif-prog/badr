@@ -1,0 +1,109 @@
+{
+  "theme": {
+    "mode": "light",
+    "archetype": "1 (Organic & Earthy)",
+    "description": "Sunwashed Moroccan Palette mixed with Accessible Chat best practices. Warm, inclusive, and culturally grounded. Designed for clarity, emotional warmth, and high accessibility."
+  },
+  "colors": {
+    "background": "#F9F7F3",
+    "surface": "#FFFFFF",
+    "primary": "#264653",
+    "primary_foreground": "#FFFFFF",
+    "secondary": "#F0EDE5",
+    "secondary_foreground": "#2C2E33",
+    "accent_record": "#E76F51",
+    "accent_record_foreground": "#FFFFFF",
+    "border": "#E5E1D8",
+    "text_primary": "#2C2E33",
+    "text_secondary": "#6B6A3A",
+    "focus_ring": "#2A9D8F",
+    "error": "#8C3F2D"
+  },
+  "typography": {
+    "heading_font": "EB Garamond",
+    "body_font": "Figtree",
+    "scales": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl tracking-tight leading-none",
+      "h2": "text-2xl sm:text-3xl tracking-tight",
+      "h3": "text-xl sm:text-2xl",
+      "body": "text-base leading-relaxed",
+      "small": "text-sm",
+      "label": "text-xs uppercase tracking-[0.2em]"
+    }
+  },
+  "spacing_and_layout": {
+    "strategy": "Generous Spacing Philosophy with Dashboard Bento Strategy",
+    "container_padding": "p-6 sm:p-8",
+    "chat_bubble_padding": "py-3 px-5",
+    "gap_large": "gap-8",
+    "gap_medium": "gap-4",
+    "border_radius": {
+      "cards": "rounded-2xl",
+      "buttons": "rounded-full",
+      "chat_bubbles": "rounded-2xl"
+    }
+  },
+  "surfaces_and_micro_themes": {
+    "chat_container": "Solid Background (#FFFFFF) with a 1px border (#E5E1D8) and soft ambient shadow (shadow-[0_8px_32px_rgba(44,46,51,0.05)]).",
+    "header": "Crystal Glassmorphism: backdrop-blur-xl bg-white/70, border-b border-white/40.",
+    "input_area": "Neumorphism base but crisp: flat background matching parent, 1px subtle border, sharp focus ring on active.",
+    "webcam_preview": "Rounded-2xl overflow-hidden shadow-lg border border-[#E5E1D8]"
+  },
+  "motion_and_interactions": {
+    "hover_states": "Buttons lift slightly (-translate-y-0.5) and shadow increases. Background darkens slightly. ALWAYS explicitly set text color on hover.",
+    "focus_states": "High contrast ring: focus:ring-2 focus:ring-[#2A9D8F] focus:outline-none.",
+    "chat_stream": "Use aria-live='polite' and aria-atomic='false'. Animate new messages sliding up (framer-motion).",
+    "recording_pulse": "When video/audio is recording, the #E76F51 button should have a continuous gentle pulsing animation (scale 1.05 and opacity 0.8 to 1)."
+  },
+  "components": [
+    {
+      "name": "chat_bubble_user",
+      "classes": "bg-[#264653] text-white rounded-2xl rounded-tr-sm py-3 px-5 max-w-[85%] self-end shadow-sm"
+    },
+    {
+      "name": "chat_bubble_ai",
+      "classes": "bg-[#F0EDE5] text-[#2C2E33] rounded-2xl rounded-tl-sm py-3 px-5 max-w-[85%] self-start shadow-sm"
+    },
+    {
+      "name": "sign_language_record_button",
+      "classes": "bg-[#E76F51] text-white rounded-full p-4 shadow-lg hover:-translate-y-1 transition-transform focus:ring-2 focus:ring-offset-2 focus:ring-[#E76F51]"
+    },
+    {
+      "name": "language_selector",
+      "classes": "Shadcn Select or DropdownMenu customized, displaying current language. Focus on Darija and Tamazight."
+    }
+  ],
+  "accessibility": {
+    "aria_live_regions": "Apply aria-live='polite' to the chat response container.",
+    "keyboard_navigation": "Logical Tab Order: Input -> Mic Button -> Camera Button -> Send Button. Enter submits, Shift+Enter new line. Escape closes modals.",
+    "contrast": "Ensure all text meets 4.5:1 ratio. User bubble white on #264653 is > 7:1. AI bubble #2C2E33 on #F0EDE5 is > 7:1.",
+    "focus_trapping": "Trap focus inside the webcam recording modal while open."
+  },
+  "icons_strategy": {
+    "library": "lucide-react",
+    "usage": "Use simple, recognizable icons. Camera for sign language, Mic for audio, Send for text. Icons should be 20px (w-5 h-5)."
+  },
+  "media": {
+    "images": [
+      {
+        "url": "https://images.unsplash.com/photo-1549140600-78c9b8275e9d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzF8MHwxfHNlYXJjaHwxfHxtb3JvY2NhbiUyMGFyY2hpdGVjdHVyZSUyMG1pbmltYWx8ZW58MHx8fHwxNzgyNDM0NzMwfDA&ixlib=rb-4.1.0&q=85",
+        "category": "empty_state_background",
+        "description": "Minimal Moroccan architecture to be used at very low opacity (10%) or as a subtle sidebar/welcome visual to root the app in its cultural context."
+      }
+    ]
+  },
+  "testing": {
+    "attributes": "All interactive and key informational elements MUST include a data-testid attribute. Convention: kebab-case, role-based. Example: data-testid='sign-language-record-button'."
+  },
+  "instructions_to_main_agent": [
+    "Set up the Vite React project and FastAPI backend as specified in the problem statement.",
+    "Configure Tailwind with the specified colors and fonts (EB Garamond for headings, Figtree for body).",
+    "Install framer-motion for smooth chat bubble appearances and recording button pulse effects.",
+    "Install lucide-react for icons.",
+    "Implement the Chat Interface using a generous spacing layout (Sidebar for history/language if needed, Main for chat).",
+    "Implement the sign-language recording feature using the MediaRecorder API, previewing the webcam in a rounded container before sending. Ensure the POST endpoint /api/process-sign-language handles the .webm upload securely.",
+    "Ensure the Moroccan Darija and Tamazight language options are prominently featured.",
+    "Ensure all accessibility features (ARIA tags, focus management, semantic HTML) are strictly implemented for the deaf/mute target audience.",
+    "Use data-testid on every button, input, and chat bubble for testing."
+  ]
+}
