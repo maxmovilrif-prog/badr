@@ -251,7 +251,7 @@ async def share_conversation(conversation_id: str):
     token = conv.get("share_token") or uuid.uuid4().hex
     await db.conversations.update_one(
         {"id": conversation_id},
-        {"$set": {"share_token": token, "is_shared": True}},
+        {"$set": {"share_token": token, "is_shared": True, "updated_at": datetime.now(timezone.utc).isoformat()}},
     )
     return {"share_token": token, "is_shared": True}
 

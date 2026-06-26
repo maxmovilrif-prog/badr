@@ -77,7 +77,7 @@ export const exportConversationPdf = async (title, messages) => {
       pdf.addImage(imgData, "JPEG", 0, position, imgW, imgH);
       heightLeft -= pageH;
     }
-    const fname = `ChatMaroc-${safeTitle.replace(/[^\w\u0600-\u06FF\u2D30-\u2D7F-]+/g, "_").slice(0, 40) || "chat"}.pdf`;
+    const fname = `ChatMaroc-${(safeTitle.replace(/[^\w\u0600-\u06FF\u2D30-\u2D7F-]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40)) || "chat"}.pdf`;
     pdf.save(fname);
   } finally {
     document.body.removeChild(container);
