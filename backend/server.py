@@ -14,7 +14,7 @@ import uuid
 from datetime import datetime, timezone
 
 from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone
-from emergentintegrations.llm.openai import OpenAISpeechToText
+from emergentintegrations.llm.openai import OpenAISpeechToText, OpenAITextToSpeech
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -41,6 +41,7 @@ LANGUAGES = {
     "darija": {"label": "الدارجة المغربية (Darija)", "iso": "ar"},
     "tamazight-rif": {"label": "ⵜⴰⵔⵉⴼⵉⵜ (Tamazight - Tarifit)", "iso": "ar"},
     "tamazight-atlas": {"label": "ⵜⴰⵎⴰⵣⵉⵖⵜ (Tamazight - Central Atlas)", "iso": "ar"},
+    "tamazight-souss": {"label": "ⵜⴰⵛⵍⵃⵉⵜ (Tamazight - Tashelhit/Souss)", "iso": "ar"},
     "arabic": {"label": "العربية الفصحى (Arabic)", "iso": "ar"},
     "french": {"label": "Français (French)", "iso": "fr"},
     "english": {"label": "English", "iso": "en"},
@@ -49,8 +50,8 @@ LANGUAGES = {
 
 SYSTEM_PROMPT = (
     "You are ChatMaroc, a warm, intelligent and culturally-aware AI assistant built for Morocco. "
-    "You are fluent in Moroccan Darija (الدارجة المغربية), Amazigh/Tamazight (both Tarifit/ⵜⴰⵔⵉⴼⵉⵜ and Central Atlas Tamazight/ⵜⴰⵎⴰⵣⵉⵖⵜ), "
-    "Modern Standard Arabic, French, English and Spanish. You understand Moroccan culture, dialects, food, geography and daily life. "
+    "You are fluent in Moroccan Darija (الدارجة المغربية), Amazigh/Tamazight in all Moroccan variants — Tarifit/ⵜⴰⵔⵉⴼⵉⵜ (Rif), Central Atlas Tamazight/ⵜⴰⵎⴰⵣⵉⵖⵜ, and Tashelhit/ⵜⴰⵛⵍⵃⵉⵜ (Souss) — "
+    "MSA, French, English and Spanish. You understand Moroccan culture, dialects, food, geography and daily life. "
     "Always answer in the language the user selected. When the language is Darija, reply in natural Moroccan Arabic (Arabic script), "
     "and you may mix in common French/Latin words the way Moroccans naturally do. When the language is Tamazight, prefer Tifinagh script (ⵜⵉⴼⵉⵏⴰⵖ) "
     "with a short transliteration in parentheses when helpful. Be friendly, concise, and inclusive. "
@@ -74,6 +75,11 @@ class ChatRequest(BaseModel):
     message: str
     language: str = "darija"
     kind: str = "text"
+
+
+class TtsRequest(BaseModel):
+    text: str
+    voice: str = "nova"
 
 
 # ---------- Helpers ----------
@@ -179,6 +185,22 @@ async def transcribe(audio: UploadFile = File(...), language: str = Form("darija
     except Exception as e:
         logger.error(f"Transcription failed: {e}")
         raise HTTPException(status_code=500, detail=f"Transcription failed: {e}")
+
+
+@api_router.post("/tts")
+async def tts(req: TtsRequest):
+    text = (req.text or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Empty text")
+    text = text[:4000]
+    voice = req.voice if req.voice in {"alloy", "ash", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer"} else "nova"
+    try:
+        engine = OpenAITextToSpeech(api_key=EMERGENT_LLM_KEY)
+        audio_bytes = await engine.generate_speech(text=text, model="tts-1", voice=voice, response_format="mp3")
+        return StreamingResponse(iter([audio_bytes]), media_type="audio/mpeg")
+    except Exception as e:
+        logger.error(f"TTS failed: {e}")
+        raise HTTPException(status_code=500, detail=f"TTS failed: {e}")
 
 
 @api_router.post("/process-sign-language")

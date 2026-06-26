@@ -1,0 +1,26 @@
+{
+  "summary": "Iteration 2: Verified new TTS endpoint, Tashelhit (tamazight-souss) language addition, Listen/auto-speak UI wiring, and confirmed sign-language recorder modal is fully wired. All 12 backend pytest tests pass (including 3 new TTS tests + updated languages test asserting 8 languages and Tashelhit label). All targeted frontend flows verified on public URL: auto-speak-toggle swaps Volume2/VolumeX, language selector lists Tashelhit option, Darija text chat streams an assistant reply with Listen button under the bubble, clicking Listen fires POST /api/tts and receives HTTP 200 audio/mpeg with no JS errors, sign-language modal opens, shows camera-denied error gracefully in headless, and closes via close button. No bugs found.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_chatmaroc_api.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Minor (carried over): logger is defined AFTER it is referenced inside async route handlers; works at runtime but cleaner to move logging.basicConfig + getLogger above the routes.",
+    "Minor: /api/tts has no rate limiting / cost ceiling. text is truncated to 4000 chars which is good, but consider basic per-session throttling to avoid abuse of paid TTS.",
+    "Minor: speak() in ChatMaroc.jsx does not abort an in-flight fetch when user toggles Stop while TTS is still being generated (only audio playback is paused). Low impact since TTS responses are usually <2s.",
+    "Minor: audio Blob URL created in speak() is only revoked in audio.onended — if user clicks Stop before audio ends, the object URL leaks until page unload.",
+    "Minor (carried over): uploaded audio/sign-video webm files in /uploads/* are never cleaned up.",
+    "Nice-to-have: TTS hardcodes voice 'nova' which doesn't sound natural for Arabic/Tamazight. Backend already accepts a voice param — frontend could expose it or pick a more region-appropriate default."
+  ],
+  "updated_files": ["/app/backend/tests/test_chatmaroc_api.py", "/app/test_reports/iteration_2.json"],
+  "success_rate": {"backend": "100% (12/12 pytest)", "frontend": "100% of targeted flows"},
+  "test_credentials": "N/A (no auth)",
+  "seed_data_creation": "Tests use TEST_<uuid> session_id and clean up via DELETE /api/messages/{session_id} in module teardown.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend test file /app/backend/tests/test_chatmaroc_api.py now has 12 tests including test_tts_basic (200 + audio/mpeg + MP3 magic bytes check), test_tts_empty (400), test_tts_custom_voice (alloy). test_languages asserts all 8 keys incl. tamazight-souss and verifies Tashelhit label. Frontend: in headless without audio device, after clicking Listen the button briefly shows Stop then resets to Listen because audio.play() onerror fires — this is expected and the /api/tts network call still returns 200 with mp3 bytes. No JS errors observed.",
+  "rca of the issue": "No bugs identified in iteration 2."
+}

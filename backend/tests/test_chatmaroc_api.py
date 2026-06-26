@@ -40,8 +40,13 @@ def test_languages(session):
     data = r.json()
     assert "languages" in data
     keys = {l["key"] for l in data["languages"]}
-    for required in ["darija", "tamazight-rif", "tamazight-atlas", "arabic", "french", "english", "spanish"]:
+    for required in ["darija", "tamazight-rif", "tamazight-atlas", "tamazight-souss", "arabic", "french", "english", "spanish"]:
         assert required in keys, f"missing language: {required}"
+    # Verify tamazight-souss has Tashelhit label
+    souss = next((l for l in data["languages"] if l["key"] == "tamazight-souss"), None)
+    assert souss is not None
+    assert "Tashelhit" in souss["label"] or "ⵜⴰⵛⵍⵃⵉⵜ" in souss["label"]
+    assert len(data["languages"]) == 8
 
 
 # ---- Chat SSE ----
@@ -139,6 +144,29 @@ def test_transcribe_endpoint_reachable(session):
         assert "text" in body
     else:
         assert "detail" in body
+
+
+# ---- TTS ----
+def test_tts_basic(session):
+    r = session.post(f"{API}/tts", json={"text": "السلام عليكم"}, timeout=60)
+    assert r.status_code == 200, r.text
+    assert "audio/mpeg" in r.headers.get("content-type", "")
+    assert len(r.content) > 100, f"audio too small: {len(r.content)} bytes"
+    # MP3 files start with ID3 tag or MPEG sync (0xFF 0xFB / 0xFF 0xF3 / 0xFF 0xF2)
+    head = r.content[:3]
+    assert head[:3] == b"ID3" or head[0] == 0xFF, f"unexpected mp3 header: {head.hex()}"
+
+
+def test_tts_empty(session):
+    r = session.post(f"{API}/tts", json={"text": "   "}, timeout=10)
+    assert r.status_code == 400
+
+
+def test_tts_custom_voice(session):
+    r = session.post(f"{API}/tts", json={"text": "Hello world", "voice": "alloy"}, timeout=60)
+    assert r.status_code == 200
+    assert "audio/mpeg" in r.headers.get("content-type", "")
+    assert len(r.content) > 100
 
 
 # ---- Clear ----

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import {
-  Send, Mic, Square, Camera, Sparkles, Trash2, Loader2, Hand, Volume2,
+  Send, Mic, Square, Camera, Sparkles, Trash2, Loader2, Hand, Volume2, VolumeX,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,12 +38,16 @@ export default function ChatMaroc() {
   const [transcribing, setTranscribing] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [sendingSign, setSendingSign] = useState(false);
+  const [autoSpeak, setAutoSpeak] = useState(true);
+  const [speakingId, setSpeakingId] = useState(null);
+  const [ttsLoadingId, setTtsLoadingId] = useState(null);
 
   const scrollRef = useRef(null);
   const audioRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const audioStreamRef = useRef(null);
   const textareaRef = useRef(null);
+  const ttsAudioRef = useRef(null);
 
   const scrollToBottom = useCallback(() => {
     requestAnimationFrame(() => {
@@ -57,6 +61,41 @@ export default function ChatMaroc() {
   }, [sessionId]);
 
   useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
+
+  const stopSpeaking = useCallback(() => {
+    if (ttsAudioRef.current) {
+      ttsAudioRef.current.pause();
+      ttsAudioRef.current = null;
+    }
+    setSpeakingId(null);
+  }, []);
+
+  const speak = useCallback(async (text, id) => {
+    if (!text || !text.trim()) return;
+    if (speakingId === id) { stopSpeaking(); return; }
+    stopSpeaking();
+    setTtsLoadingId(id);
+    try {
+      const res = await fetch(`${API}/tts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) throw new Error("TTS failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      ttsAudioRef.current = audio;
+      audio.onended = () => { setSpeakingId(null); URL.revokeObjectURL(url); };
+      audio.onerror = () => { setSpeakingId(null); };
+      setSpeakingId(id);
+      await audio.play();
+    } catch (e) {
+      toast.error("Voice playback failed.");
+    } finally {
+      setTtsLoadingId(null);
+    }
+  }, [speakingId, stopSpeaking]);
 
   const streamChat = async (text, kind = "text") => {
     setStreaming(true);
@@ -74,6 +113,7 @@ export default function ChatMaroc() {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
+      let fullText = "";
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -85,11 +125,15 @@ export default function ChatMaroc() {
           if (!line.startsWith("data:")) continue;
           const payload = JSON.parse(line.slice(5).trim());
           if (payload.delta) {
+            fullText += payload.delta;
             setMessages((prev) => prev.map((m) => m.id === aiId ? { ...m, content: m.content + payload.delta } : m));
           } else if (payload.error) {
             toast.error("AI error: " + payload.error);
           }
         }
+      }
+      if (autoSpeak && fullText.trim()) {
+        speak(fullText, aiId);
       }
     } catch (e) {
       toast.error("Could not reach ChatMaroc. Please try again.");
@@ -177,6 +221,7 @@ export default function ChatMaroc() {
   };
 
   const clearChat = async () => {
+    stopSpeaking();
     await fetch(`${API}/messages/${sessionId}`, { method: "DELETE" }).catch(() => {});
     setMessages([]);
     toast.success("Conversation cleared");
@@ -217,6 +262,17 @@ export default function ChatMaroc() {
                 ))}
               </SelectContent>
             </Select>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => { if (autoSpeak) stopSpeaking(); setAutoSpeak((v) => !v); }}
+              className={`rounded-full hover:bg-[#F0EDE5] ${autoSpeak ? "text-[#2A9D8F]" : "text-[#6B6A3A]"}`}
+              aria-label={autoSpeak ? "Disable voice replies" : "Enable voice replies"}
+              title={autoSpeak ? "Voice replies on" : "Voice replies off"}
+              data-testid="auto-speak-toggle"
+            >
+              {autoSpeak ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+            </Button>
             <Button
               variant="ghost"
               size="icon"
@@ -288,7 +344,24 @@ export default function ChatMaroc() {
                     ) : (
                       <div className="bg-[#F0EDE5] text-[#2C2E33] rounded-2xl rounded-tl-sm py-3 px-5 max-w-[85%] shadow-sm">
                         {m.content ? (
-                          <p className="whitespace-pre-wrap break-words">{m.content}</p>
+                          <>
+                            <p className="whitespace-pre-wrap break-words">{m.content}</p>
+                            <button
+                              onClick={() => speak(m.content, m.id)}
+                              className="mt-2 inline-flex items-center gap-1 text-xs text-[#264653] hover:text-[#2A9D8F] focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] rounded-full px-2 py-1 transition-colors"
+                              aria-label={speakingId === m.id ? "Stop voice" : "Play voice reply"}
+                              data-testid={`speak-button-${m.id}`}
+                            >
+                              {ttsLoadingId === m.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : speakingId === m.id ? (
+                                <Square className="w-3.5 h-3.5" />
+                              ) : (
+                                <Volume2 className="w-3.5 h-3.5" />
+                              )}
+                              {speakingId === m.id ? "Stop" : "Listen"}
+                            </button>
+                          </>
                         ) : (
                           <span className="inline-flex gap-1 py-1" data-testid="typing-indicator">
                             <span className="w-2 h-2 rounded-full bg-[#6B6A3A] animate-bounce" style={{ animationDelay: "0ms" }} />
