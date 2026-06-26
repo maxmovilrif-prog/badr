@@ -1,0 +1,34 @@
+{
+  "summary": "Iteration 4 — validated the two NEW features (live web search via Tavily + file analysis via Gemini) and ran full regression. Backend: extended /app/backend/tests/test_chatmaroc_api.py with 8 new pytest tests (test_features_endpoint, test_web_search_chat_streams_sources_and_answer, test_web_search_chat_empty, test_chat_with_file_text, test_chat_with_file_png, test_chat_with_file_unsupported_type, test_chat_with_file_empty, test_cleanup_new_feature_sessions). Full suite = 27/27 passing in 60s against REACT_APP_BACKEND_URL. Verified: GET /api/features -> {web_search: true}; POST /api/web-search-chat streams a 'sources' SSE event first (non-empty list of {title,url} starting with http), then delta tokens, then done; assistant message is persisted WITH the sources array (validated via GET /api/messages/{session_id}); POST /api/chat-with-file accepts text/plain and image/png, returns SSE deltas (Gemini gemini-2.5-flash), persists a user message with kind='file' + assistant message; rejects application/zip with 415 and empty file with 400. Regression confirmed: /api/chat SSE, /api/tts (audio/mpeg 200), /api/conversations CRUD, /api/process-sign-language simulated, /api/languages 8 keys incl tamazight-souss. Frontend e2e on production preview URL: input bar shows attach-file-button + web-search-toggle (ENABLED, not dimmed) + sign-language-record-button + voice-record-button + send-button + hidden file-input. Web search flow: clicking web-search-toggle activates and shows search-mode-chip 'Web search on', typing a 2026 query and clicking send produces user bubble with 'Web search' badge, message-sources panel with 6 clickable source-link-N anchors (each with valid http href, e.g. source-link-0 -> capgemini.com), assistant streams a 305-char answer, and a sidebar history-item is created. Toggling web-search-toggle OFF hides the search-mode-chip. File upload flow: set_input_files on [data-testid=file-input] with a .txt -> pending-file-chip appears showing the filename + remove-file-btn; send -> user bubble shows 📎 filename + 'File' badge, /api/conversations -> 200, /api/chat-with-file -> 200, Gemini streams a 235-char Darija analysis. Remove-file-btn correctly clears the pending chip. Regression frontend: plain text chat still streams + Listen button fires /api/tts -> 200; voice-selector lists 7 voice-option-* radios; language-selector <select> has exactly 8 options incl tamazight-souss; sign-language-modal opens with sign-language-error gracefully shown in headless (no mic/camera); sign-language-close-button dismisses it; new-chat-btn resets to empty state; clicking history-item reloads messages (2 bubbles). No JS errors observed.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_chatmaroc_api.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Minor (carried over): server.py logger is defined AFTER it is referenced inside async route handlers; functional but cleaner to move logging.basicConfig + getLogger above the routes.",
+    "Minor: /api/chat-with-file persists the assistant reply with kind='text' even though the user message is kind='file' — consider kind='file' on assistant too (or a dedicated 'file_reply' kind) so the UI can re-render an attached-file badge when reloading history from /api/messages/{session_id}.",
+    "Minor: /api/web-search-chat does not bound Tavily latency — if Tavily takes >30s the SSE will appear stuck with only the empty 'sources' event. Consider asyncio.wait_for(tavily_search(...), timeout=20) and emit an SSE error/done if it times out.",
+    "Minor: /api/chat-with-file writes uploaded files to /app/backend/uploads/files/* and never cleans them up. Same TTL/cleanup concern previously flagged for audio + sign-video.",
+    "Minor: sources list emitted in /api/web-search-chat uses url as the title fallback when title is missing — fine, but consider also stripping protocol and trimming so chips look cleaner.",
+    "Minor: /api/chat-with-file allows mime 'image/jpg' which is not an IANA-registered type (real upstreams send 'image/jpeg'); keep both for safety but consider documenting.",
+    "Minor (carried over): TTS Blob URL is only revoked in audio.onended — stopping mid-playback leaks the object URL.",
+    "Minor (carried over): uploaded audio/sign-video/file webm+txt+png blobs in /uploads/* are never cleaned up; risk of disk growth.",
+    "Nice-to-have: web-search-toggle disabled state is purely controlled by GET /api/features at mount; if Tavily key is rotated to invalid at runtime there is no graceful UI degradation — only a 503 from the API. Consider a single sources-event with an empty list AND an error field so the UI can show a toast.",
+    "Nice-to-have: message-sources panel uses target='_blank' on source-link-N anchors (verified by href). Confirm rel='noopener noreferrer' is also set for security."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_chatmaroc_api.py",
+    "/app/test_reports/iteration_4.json",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "success_rate": {"backend": "100% (27/27 pytest)", "frontend": "100% of targeted flows"},
+  "test_credentials": "N/A (no auth)",
+  "seed_data_creation": "Tests use TEST_<uuid> session_id and TEST_client_<uuid> client_id; module teardown deletes messages for WS/CF/main sessions and remaining conversations.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend test file /app/backend/tests/test_chatmaroc_api.py now has 27 tests including 8 new ones for /api/features, /api/web-search-chat (sources + delta + persistence), and /api/chat-with-file (txt happy path, png vision, 415 zip, 400 empty). The web-search test depends on real Tavily + real Claude streaming — keep the 90s timeout. The png vision test depends on real Gemini gemini-2.5-flash and can take ~60s — keep the 120s timeout. Frontend behavior: web-search-toggle is gated by GET /api/features web_search:true at mount; if Tavily key is removed the toggle silently disables. File input is hidden (display:none) — must use locator.set_input_files() in Playwright, attach-file-button click also triggers it. Pending file chip is cleared after send AND on remove-file-btn click. Source chips are anchors with data-testid source-link-0..N and href attributes pointing to the result URL; verify both message-sources and source-link-* are present after a web search response.",
+  "rca of the issue": "No product bugs identified in iteration 4. Both NEW features (Tavily web search with inline source chips, Gemini file analysis with multipart upload) work end-to-end on the production preview URL with real third-party APIs."
+}

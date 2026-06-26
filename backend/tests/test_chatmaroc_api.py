@@ -291,6 +291,162 @@ def test_delete_conversation_and_messages(session):
     assert conv_id not in ids
 
 
+# ---- Features endpoint ----
+def test_features_endpoint(session):
+    r = session.get(f"{API}/features", timeout=10)
+    assert r.status_code == 200
+    data = r.json()
+    assert "web_search" in data
+    assert data["web_search"] is True, "web_search should be enabled (TAVILY_API_KEY is set)"
+
+
+# ---- Web search chat (live Tavily + Claude) ----
+WS_SESSION_ID = f"TEST_ws_{uuid.uuid4().hex[:10]}"
+
+
+def test_web_search_chat_streams_sources_and_answer(session):
+    payload = {
+        "session_id": WS_SESSION_ID,
+        "message": "What is the latest news about Morocco football in 2026?",
+        "language": "english",
+        "kind": "search",
+    }
+    sources = None
+    full_text = ""
+    deltas = 0
+    done = False
+    with session.post(f"{API}/web-search-chat", json=payload, stream=True, timeout=90) as r:
+        assert r.status_code == 200, r.text
+        assert "text/event-stream" in r.headers.get("content-type", "")
+        for line in r.iter_lines(decode_unicode=True):
+            if not line or not line.startswith("data:"):
+                continue
+            try:
+                ev = json.loads(line[5:].strip())
+            except Exception:
+                continue
+            if "sources" in ev:
+                sources = ev["sources"]
+            if "delta" in ev:
+                full_text += ev["delta"]
+                deltas += 1
+            if ev.get("error"):
+                pytest.fail(f"web-search-chat error: {ev['error']}")
+            if ev.get("done"):
+                done = True
+                break
+    assert done, "stream did not finish"
+    assert isinstance(sources, list) and len(sources) > 0, f"expected non-empty sources list, got {sources}"
+    for s in sources:
+        assert "title" in s and "url" in s
+        assert isinstance(s["url"], str) and s["url"].startswith("http")
+    assert deltas > 0, "no delta tokens"
+    assert len(full_text.strip()) > 0, "empty assistant reply"
+
+    # Verify assistant message persisted WITH sources
+    time.sleep(1)
+    r2 = session.get(f"{API}/messages/{WS_SESSION_ID}", timeout=10)
+    assert r2.status_code == 200
+    msgs = r2.json()
+    assistants = [m for m in msgs if m["role"] == "assistant"]
+    assert len(assistants) >= 1
+    last_a = assistants[-1]
+    assert last_a.get("sources"), "assistant message should have non-empty sources list"
+    assert isinstance(last_a["sources"], list) and len(last_a["sources"]) > 0
+
+
+def test_web_search_chat_empty(session):
+    r = session.post(f"{API}/web-search-chat", json={"session_id": WS_SESSION_ID, "message": "   ", "language": "english"}, timeout=10)
+    assert r.status_code == 400
+
+
+# ---- Chat with file (Gemini) ----
+CF_SESSION_ID = f"TEST_cf_{uuid.uuid4().hex[:10]}"
+
+
+def _consume_sse(r, timeout_label="stream"):
+    full = ""
+    done = False
+    deltas = 0
+    for line in r.iter_lines(decode_unicode=True):
+        if not line or not line.startswith("data:"):
+            continue
+        try:
+            ev = json.loads(line[5:].strip())
+        except Exception:
+            continue
+        if "delta" in ev:
+            full += ev["delta"]
+            deltas += 1
+        if ev.get("error"):
+            pytest.fail(f"{timeout_label} error: {ev['error']}")
+        if ev.get("done"):
+            done = True
+            break
+    return full, deltas, done
+
+
+def test_chat_with_file_text(session):
+    txt = b"ChatMaroc is a Moroccan AI chat platform. It supports Darija, Tamazight, Arabic, French, English and Spanish. The capital of Morocco is Rabat."
+    files = {"file": ("notes.txt", txt, "text/plain")}
+    data = {"session_id": CF_SESSION_ID, "message": "Summarize this in one short sentence.", "language": "english"}
+    with session.post(f"{API}/chat-with-file", files=files, data=data, stream=True, timeout=90) as r:
+        assert r.status_code == 200, r.text
+        assert "text/event-stream" in r.headers.get("content-type", "")
+        full, deltas, done = _consume_sse(r, "chat-with-file txt")
+    assert done
+    assert deltas > 0
+    assert len(full.strip()) > 0
+
+    # Verify user msg (kind=file) + assistant msg persisted
+    time.sleep(1)
+    r2 = session.get(f"{API}/messages/{CF_SESSION_ID}", timeout=10)
+    msgs = r2.json()
+    kinds = [m.get("kind") for m in msgs]
+    roles = [m.get("role") for m in msgs]
+    assert "file" in kinds, f"expected a user message with kind=file, got kinds={kinds}"
+    assert "assistant" in roles
+
+
+def test_chat_with_file_png(session):
+    # Smallest valid PNG (1x1 red pixel)
+    png = bytes.fromhex(
+        "89504E470D0A1A0A0000000D49484452000000010000000108020000"
+        "00907753DE0000000C49444154789C63F8CFC0000000030001"
+        "5CCDFF690000000049454E44AE426082"
+    )
+    files = {"file": ("dot.png", png, "image/png")}
+    data = {"session_id": CF_SESSION_ID, "message": "What color is this image?", "language": "english"}
+    with session.post(f"{API}/chat-with-file", files=files, data=data, stream=True, timeout=120) as r:
+        assert r.status_code == 200, r.text
+        full, deltas, done = _consume_sse(r, "chat-with-file png")
+    assert done, "png stream did not finish"
+    assert deltas > 0, "no delta tokens for png"
+    assert len(full.strip()) > 0, "empty vision analysis"
+
+
+def test_chat_with_file_unsupported_type(session):
+    files = {"file": ("archive.zip", b"PK\x03\x04dummyzipbytes", "application/zip")}
+    data = {"session_id": CF_SESSION_ID, "message": "what is this?", "language": "english"}
+    r = session.post(f"{API}/chat-with-file", files=files, data=data, timeout=15)
+    assert r.status_code == 415, f"expected 415, got {r.status_code}: {r.text[:200]}"
+
+
+def test_chat_with_file_empty(session):
+    files = {"file": ("empty.txt", b"", "text/plain")}
+    data = {"session_id": CF_SESSION_ID, "message": "?", "language": "english"}
+    r = session.post(f"{API}/chat-with-file", files=files, data=data, timeout=15)
+    assert r.status_code == 400, f"expected 400, got {r.status_code}: {r.text[:200]}"
+
+
+def test_cleanup_new_feature_sessions(session):
+    for sid in (WS_SESSION_ID, CF_SESSION_ID):
+        try:
+            session.delete(f"{API}/messages/{sid}", timeout=10)
+        except Exception:
+            pass
+
+
 def test_cleanup_remaining_conversations(session):
     # Final cleanup: delete remaining test conversations
     r = session.get(f"{API}/conversations", params={"client_id": CLIENT_ID}, timeout=10)
