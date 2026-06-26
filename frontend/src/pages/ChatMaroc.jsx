@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import {
   Send, Mic, Square, Camera, Sparkles, Loader2, Volume2, VolumeX,
-  Menu, X, ChevronDown, Hand, AudioLines,
+  Menu, X, ChevronDown, Hand, AudioLines, Paperclip, Globe, FileText, ExternalLink,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup,
@@ -61,12 +61,16 @@ export default function ChatMaroc() {
   const [speakingId, setSpeakingId] = useState(null);
   const [ttsLoadingId, setTtsLoadingId] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [pendingFile, setPendingFile] = useState(null);
+  const [searchMode, setSearchMode] = useState(false);
+  const [webSearchAvailable, setWebSearchAvailable] = useState(false);
 
   const scrollRef = useRef(null);
   const audioRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const audioStreamRef = useRef(null);
   const textareaRef = useRef(null);
+  const fileInputRef = useRef(null);
   const ttsAudioRef = useRef(null);
   const ttsUrlRef = useRef(null);
   const activeIdRef = useRef(null);
@@ -91,6 +95,7 @@ export default function ChatMaroc() {
 
   useEffect(() => {
     fetch(`${API}/languages`).then((r) => r.json()).then((d) => setLanguages(d.languages || [])).catch(() => {});
+    fetch(`${API}/features`).then((r) => r.json()).then((d) => setWebSearchAvailable(!!d.web_search)).catch(() => {});
     loadConversations();
   }, [loadConversations]);
 
@@ -190,58 +195,127 @@ export default function ChatMaroc() {
   }, [speakingId, stopSpeaking, voice, language]);
 
   // ---------- Chat ----------
-  const streamChat = async (text, kind = "text") => {
-    const convId = await ensureConversation();
-    setStreaming(true);
-    const userMsg = { id: `u_${Date.now()}`, role: "user", content: text, kind };
-    const aiId = `a_${Date.now()}`;
-    setMessages((prev) => [...prev, userMsg, { id: aiId, role: "assistant", content: "", kind: "text" }]);
-
-    try {
-      const res = await fetch(`${API}/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_id: convId, message: text, language, kind }),
-      });
-      if (!res.ok || !res.body) throw new Error("Network error");
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let fullText = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const parts = buffer.split("\n\n");
-        buffer = parts.pop() || "";
-        for (const part of parts) {
-          const line = part.trim();
-          if (!line.startsWith("data:")) continue;
-          const payload = JSON.parse(line.slice(5).trim());
-          if (payload.delta) {
-            fullText += payload.delta;
-            setMessages((prev) => prev.map((m) => m.id === aiId ? { ...m, content: m.content + payload.delta } : m));
-          } else if (payload.error) {
-            toast.error("AI error: " + payload.error);
-          }
+  const consumeStream = async (res, aiId) => {
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let fullText = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const parts = buffer.split("\n\n");
+      buffer = parts.pop() || "";
+      for (const part of parts) {
+        const line = part.trim();
+        if (!line.startsWith("data:")) continue;
+        const payload = JSON.parse(line.slice(5).trim());
+        if (payload.delta) {
+          fullText += payload.delta;
+          setMessages((prev) => prev.map((m) => m.id === aiId ? { ...m, content: m.content + payload.delta } : m));
+        } else if (payload.sources) {
+          setMessages((prev) => prev.map((m) => m.id === aiId ? { ...m, sources: payload.sources } : m));
+        } else if (payload.error) {
+          toast.error("AI error: " + payload.error);
         }
       }
+    }
+    return fullText;
+  };
+
+  const pushTurnAndStream = async (userMsg, fetchFactory) => {
+    setStreaming(true);
+    const aiId = `a_${Date.now()}`;
+    setMessages((prev) => [...prev, userMsg, { id: aiId, role: "assistant", content: "", kind: "text" }]);
+    try {
+      const res = await fetchFactory();
+      if (!res.ok || !res.body) {
+        let detail = "Network error";
+        try { detail = (await res.json()).detail || detail; } catch {}
+        throw new Error(detail);
+      }
+      const fullText = await consumeStream(res, aiId);
       loadConversations();
       if (autoSpeak && fullText.trim()) speak(fullText, aiId);
-    } catch {
-      toast.error("Could not reach ChatMaroc. Please try again.");
+    } catch (e) {
+      toast.error(typeof e?.message === "string" ? e.message : "Could not reach ChatMaroc.");
       setMessages((prev) => prev.map((m) => m.id === aiId ? { ...m, content: m.content || "⚠️ Connection error." } : m));
     } finally {
       setStreaming(false);
     }
   };
 
+  const streamChat = (text, kind = "text") => {
+    const userMsg = { id: `u_${Date.now()}`, role: "user", content: text, kind };
+    return pushTurnAndStream(userMsg, async () => {
+      const convId = await ensureConversation();
+      return fetch(`${API}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: convId, message: text, language, kind }),
+      });
+    });
+  };
+
+  const searchChat = (text) => {
+    const userMsg = { id: `u_${Date.now()}`, role: "user", content: text, kind: "search" };
+    return pushTurnAndStream(userMsg, async () => {
+      const convId = await ensureConversation();
+      return fetch(`${API}/web-search-chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: convId, message: text, language }),
+      });
+    });
+  };
+
+  const fileChat = (file, text) => {
+    const userMsg = { id: `u_${Date.now()}`, role: "user", content: `📎 ${file.name}${text ? "\n" + text : ""}`, kind: "file" };
+    return pushTurnAndStream(userMsg, async () => {
+      const convId = await ensureConversation();
+      const fd = new FormData();
+      fd.append("session_id", convId);
+      fd.append("language", language);
+      fd.append("message", text);
+      fd.append("file", file, file.name);
+      return fetch(`${API}/chat-with-file`, { method: "POST", body: fd });
+    });
+  };
+
   const handleSend = () => {
+    if (streaming) return;
     const text = input.trim();
-    if (!text || streaming) return;
+    if (pendingFile) {
+      const f = pendingFile;
+      setPendingFile(null);
+      setInput("");
+      if (textareaRef.current) textareaRef.current.style.height = "auto";
+      fileChat(f, text);
+      return;
+    }
+    if (!text) return;
     setInput("");
     if (textareaRef.current) textareaRef.current.style.height = "auto";
-    streamChat(text, "text");
+    if (searchMode) searchChat(text);
+    else streamChat(text, "text");
+  };
+
+  const onPickFile = (e) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    if (f.size > 20 * 1024 * 1024) { toast.error("File too large (max 20MB)."); return; }
+    setPendingFile(f);
+    setSearchMode(false);
+  };
+
+  const toggleSearch = () => {
+    if (!webSearchAvailable) {
+      toast.error("Web search needs a Tavily API key — ask the owner to enable it.");
+      return;
+    }
+    setPendingFile(null);
+    setSearchMode((v) => !v);
   };
 
   // ---------- Voice ----------
@@ -468,10 +542,13 @@ export default function ChatMaroc() {
                   >
                     {m.role === "user" ? (
                       <div className="self-end max-w-[85%] md:max-w-[75%] bg-white/10 backdrop-blur-md border border-white/10 rounded-2xl rounded-tr-sm px-4 py-3 text-white shadow-lg">
-                        {(m.kind === "voice" || m.kind === "sign") && (
+                        {["voice", "sign", "file", "search"].includes(m.kind) && (
                           <span className="inline-flex items-center gap-1 text-xs text-cyan-300 mb-1">
-                            {m.kind === "voice" ? <Mic className="w-3 h-3" /> : <Hand className="w-3 h-3" />}
-                            {m.kind === "voice" ? "Voice" : "Sign"}
+                            {m.kind === "voice" ? <Mic className="w-3 h-3" />
+                              : m.kind === "sign" ? <Hand className="w-3 h-3" />
+                              : m.kind === "file" ? <Paperclip className="w-3 h-3" />
+                              : <Globe className="w-3 h-3" />}
+                            {m.kind === "voice" ? "Voice" : m.kind === "sign" ? "Sign" : m.kind === "file" ? "File" : "Web search"}
                           </span>
                         )}
                         <p className="whitespace-pre-wrap break-words" dir="auto">{m.content}</p>
@@ -486,6 +563,24 @@ export default function ChatMaroc() {
                             {m.content ? (
                               <>
                                 <p className="whitespace-pre-wrap break-words text-slate-100 leading-relaxed" dir="auto">{m.content}</p>
+                                {m.sources && m.sources.length > 0 && (
+                                  <div className="mt-3 flex flex-wrap gap-2" data-testid="message-sources">
+                                    {m.sources.map((s, si) => (
+                                      <a
+                                        key={si}
+                                        href={s.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 max-w-[220px] text-xs text-slate-300 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full px-3 py-1.5 transition-colors"
+                                        data-testid={`source-link-${si}`}
+                                      >
+                                        <span className="text-cyan-300 font-medium">{si + 1}</span>
+                                        <span className="truncate">{s.title}</span>
+                                        <ExternalLink className="w-3 h-3 opacity-60 shrink-0" />
+                                      </a>
+                                    ))}
+                                  </div>
+                                )}
                                 <button
                                   onClick={() => speak(m.content, m.id)}
                                   className="mt-2 inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-cyan-300 transition-colors rounded-full px-2 py-1 hover:bg-white/5"
@@ -524,7 +619,54 @@ export default function ChatMaroc() {
         {/* Floating input bar */}
         <div className="absolute bottom-0 left-0 right-0 px-4 pb-5 pt-10 bg-gradient-to-t from-[#050B14] via-[#050B14]/70 to-transparent pointer-events-none">
           <div className="max-w-3xl mx-auto pointer-events-auto">
-            <div className="flex items-end gap-1.5 rounded-[1.75rem] bg-black/40 backdrop-blur-2xl border border-white/15 shadow-2xl px-2 py-2 focus-within:ring-1 focus-within:ring-cyan-400/50 transition-all">
+            {/* Pending file / search mode banner */}
+            <AnimatePresence>
+              {(pendingFile || searchMode) && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}
+                  className="mb-2 flex items-center gap-2"
+                >
+                  {pendingFile && (
+                    <div className="inline-flex items-center gap-2 bg-black/50 backdrop-blur-xl border border-white/15 rounded-full pl-3 pr-2 py-1.5 text-sm text-white" data-testid="pending-file-chip">
+                      <FileText className="w-4 h-4 text-cyan-300" />
+                      <span className="max-w-[200px] truncate">{pendingFile.name}</span>
+                      <button onClick={() => setPendingFile(null)} className="p-0.5 rounded-full hover:bg-white/10 text-slate-300" aria-label="Remove file" data-testid="remove-file-btn">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+                  {searchMode && (
+                    <div className="inline-flex items-center gap-1.5 bg-cyan-500/15 border border-cyan-400/30 rounded-full px-3 py-1.5 text-sm text-cyan-200" data-testid="search-mode-chip">
+                      <Globe className="w-4 h-4" /> Web search on
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,text/plain,text/csv" className="hidden" onChange={onPickFile} data-testid="file-input" />
+
+            <div className="flex items-end gap-1 rounded-[1.75rem] bg-black/40 backdrop-blur-2xl border border-white/15 shadow-2xl px-2 py-2 focus-within:ring-1 focus-within:ring-cyan-400/50 transition-all">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="shrink-0 p-3 rounded-full text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
+                aria-label="Attach a file or image"
+                title="Attach image / PDF"
+                data-testid="attach-file-button"
+              >
+                <Paperclip className="w-5 h-5" />
+              </button>
+
+              <button
+                onClick={toggleSearch}
+                className={`shrink-0 p-3 rounded-full transition-colors ${searchMode ? "bg-cyan-500/20 text-cyan-300 border border-cyan-400/30" : "text-slate-300 hover:text-white hover:bg-white/10"} ${!webSearchAvailable ? "opacity-50" : ""}`}
+                aria-label="Toggle live web search"
+                title="Live web search"
+                data-testid="web-search-toggle"
+              >
+                <Globe className="w-5 h-5" />
+              </button>
+
               <button
                 onClick={() => setShowCamera(true)}
                 className="shrink-0 p-3 rounded-full text-purple-300 hover:text-purple-200 hover:bg-white/10 transition-colors"
@@ -545,7 +687,7 @@ export default function ChatMaroc() {
                 }}
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
                 rows={1}
-                placeholder={`Message ChatMaroc in ${currentLangLabel}…`}
+                placeholder={pendingFile ? "Ask about this file…" : searchMode ? "Search the web…" : `Message ChatMaroc in ${currentLangLabel}…`}
                 className="flex-1 resize-none bg-transparent outline-none py-2.5 px-1 text-white placeholder:text-slate-400 max-h-[160px]"
                 data-testid="chat-input"
               />
@@ -565,7 +707,7 @@ export default function ChatMaroc() {
 
               <button
                 onClick={handleSend}
-                disabled={!input.trim() || streaming}
+                disabled={(!input.trim() && !pendingFile) || streaming}
                 className="shrink-0 p-3 rounded-full bg-cyan-500 hover:bg-cyan-400 text-black transition-all disabled:opacity-40 disabled:bg-white/10 disabled:text-slate-400"
                 aria-label="Send message"
                 data-testid="send-button"
@@ -574,7 +716,7 @@ export default function ChatMaroc() {
               </button>
             </div>
             <p className="text-center text-[11px] text-slate-400/80 mt-2">
-              ChatMaroc supports text, voice & sign language · made for everyone 🇲🇦
+              Text · voice · sign · files & live web search · made for everyone 🇲🇦
             </p>
           </div>
         </div>

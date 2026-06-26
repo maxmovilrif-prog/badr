@@ -7,14 +7,21 @@ import os
 import json
 import logging
 import random
+import asyncio
+import mimetypes
 from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
 
-from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone
+from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone, FileContentWithMimeType
 from emergentintegrations.llm.openai import OpenAISpeechToText, OpenAITextToSpeech
+
+try:
+    from tavily import TavilyClient
+except Exception:
+    TavilyClient = None
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -25,12 +32,14 @@ client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY')
+TAVILY_API_KEY = os.environ.get('TAVILY_API_KEY')
 
 # Secure upload directories
 UPLOAD_DIR = ROOT_DIR / 'uploads'
 SIGN_DIR = UPLOAD_DIR / 'sign_language'
 AUDIO_DIR = UPLOAD_DIR / 'audio'
-for d in (SIGN_DIR, AUDIO_DIR):
+FILES_DIR = UPLOAD_DIR / 'files'
+for d in (SIGN_DIR, AUDIO_DIR, FILES_DIR):
     d.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title="ChatMaroc API")
@@ -65,8 +74,9 @@ class Message(BaseModel):
     session_id: str
     role: str  # 'user' | 'assistant'
     content: str
-    kind: str = "text"  # 'text' | 'voice' | 'sign'
+    kind: str = "text"  # 'text' | 'voice' | 'sign' | 'file' | 'search'
     language: Optional[str] = None
+    sources: Optional[List[dict]] = None
     timestamp: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
@@ -102,10 +112,19 @@ class ConversationUpdate(BaseModel):
 
 
 # ---------- Helpers ----------
-async def save_message(session_id: str, role: str, content: str, kind: str = "text", language: Optional[str] = None) -> Message:
-    msg = Message(session_id=session_id, role=role, content=content, kind=kind, language=language)
+async def save_message(session_id: str, role: str, content: str, kind: str = "text", language: Optional[str] = None, sources: Optional[List[dict]] = None) -> Message:
+    msg = Message(session_id=session_id, role=role, content=content, kind=kind, language=language, sources=sources)
     await db.messages.insert_one(msg.model_dump())
     return msg
+
+
+async def tavily_search(query: str, max_results: int = 5):
+    if not TAVILY_API_KEY or TavilyClient is None:
+        raise RuntimeError("Web search is not configured (missing TAVILY_API_KEY).")
+    def _run():
+        client = TavilyClient(api_key=TAVILY_API_KEY)
+        return client.search(query=query, max_results=max_results, search_depth="advanced")
+    return await asyncio.to_thread(_run)
 
 
 async def build_history_context(session_id: str, limit: int = 16) -> str:
@@ -255,6 +274,131 @@ async def chat(req: ChatRequest):
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+@api_router.post("/chat-with-file")
+async def chat_with_file(
+    session_id: str = Form(...),
+    message: str = Form(""),
+    language: str = Form("darija"),
+    file: UploadFile = File(...),
+):
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Empty file")
+    if len(content) > 20 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File too large (max 20MB)")
+
+    filename = file.filename or "file"
+    ext = Path(filename).suffix
+    mime = file.content_type or mimetypes.guess_type(filename)[0] or "application/octet-stream"
+    allowed = {
+        "image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif",
+        "application/pdf", "text/plain", "text/csv",
+    }
+    if mime not in allowed:
+        raise HTTPException(status_code=415, detail=f"Unsupported file type: {mime}")
+
+    file_id = str(uuid.uuid4())
+    file_path = FILES_DIR / f"{file_id}{ext}"
+    with open(file_path, "wb") as f:
+        f.write(content)
+
+    user_note = message.strip() or "Please analyze this file and summarize the key points."
+    display = f"📎 {filename}" + (f"\n{message.strip()}" if message.strip() else "")
+    await save_message(session_id, "user", display, kind="file", language=language)
+    await touch_conversation(session_id, f"📎 {filename}")
+    history = await build_history_context(session_id)
+
+    lang_label = LANGUAGES.get(language, LANGUAGES["english"])["label"]
+    system = SYSTEM_PROMPT + f"\n\nThe user's selected language is: {lang_label}. Reply in this language." + history
+    file_chat = LlmChat(
+        api_key=EMERGENT_LLM_KEY, session_id=session_id, system_message=system,
+    ).with_model("gemini", "gemini-2.5-flash")
+    file_content = FileContentWithMimeType(file_path=str(file_path), mime_type=mime)
+
+    async def event_generator():
+        full = ""
+        try:
+            async for ev in file_chat.stream_message(UserMessage(text=user_note, file_contents=[file_content])):
+                if isinstance(ev, TextDelta):
+                    full += ev.content
+                    yield f"data: {json.dumps({'delta': ev.content})}\n\n"
+                elif isinstance(ev, StreamDone):
+                    break
+        except Exception as e:
+            logger.error(f"File chat error: {e}")
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        if full.strip():
+            await save_message(session_id, "assistant", full, kind="text", language=language)
+        yield f"data: {json.dumps({'done': True})}\n\n"
+
+    return StreamingResponse(
+        event_generator(), media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@api_router.post("/web-search-chat")
+async def web_search_chat(req: ChatRequest):
+    if not req.message.strip():
+        raise HTTPException(status_code=400, detail="Empty message")
+    await save_message(req.session_id, "user", req.message, kind="search", language=req.language)
+    await touch_conversation(req.session_id, req.message)
+
+    try:
+        search = await tavily_search(req.message, 6)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+    results = search.get("results", []) if isinstance(search, dict) else []
+    sources = [{"title": r.get("title") or r.get("url"), "url": r.get("url")} for r in results if r.get("url")]
+    context = "\n\n".join(
+        f"[{i + 1}] {r.get('title', '')}\nURL: {r.get('url', '')}\n{(r.get('content') or '')[:1200]}"
+        for i, r in enumerate(results)
+    ) or "No web results found."
+
+    history = await build_history_context(req.session_id)
+    lang_label = LANGUAGES.get(req.language, LANGUAGES["english"])["label"]
+    system = (
+        SYSTEM_PROMPT
+        + f"\n\nThe user's selected language is: {lang_label}. Reply in this language."
+        + "\n\nYou are given LIVE web search results. Answer the user's question accurately using them, "
+        "synthesize a clear response, and cite sources inline using bracket numbers like [1], [2] that match "
+        "the numbered results. Prefer recent, reliable information."
+        + history
+    )
+    chat_client = LlmChat(
+        api_key=EMERGENT_LLM_KEY, session_id=req.session_id, system_message=system,
+    ).with_model("anthropic", "claude-sonnet-4-6")
+    prompt = f"Question: {req.message}\n\nLive web search results:\n{context}\n\nAnswer in {lang_label} with inline [n] citations."
+
+    async def event_generator():
+        full = ""
+        yield f"data: {json.dumps({'sources': sources})}\n\n"
+        try:
+            async for ev in chat_client.stream_message(UserMessage(text=prompt)):
+                if isinstance(ev, TextDelta):
+                    full += ev.content
+                    yield f"data: {json.dumps({'delta': ev.content})}\n\n"
+                elif isinstance(ev, StreamDone):
+                    break
+        except Exception as e:
+            logger.error(f"Web search chat error: {e}")
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        if full.strip():
+            await save_message(req.session_id, "assistant", full, kind="text", language=req.language, sources=sources)
+        yield f"data: {json.dumps({'done': True})}\n\n"
+
+    return StreamingResponse(
+        event_generator(), media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@api_router.get("/features")
+async def get_features():
+    return {"web_search": bool(TAVILY_API_KEY and TavilyClient is not None)}
 
 
 @api_router.post("/transcribe")
