@@ -16,8 +16,8 @@ import { SignLanguageRecorder } from "@/components/SignLanguageRecorder";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-// Main background image. Swap this URL with the user's uploaded image when available.
-const BG_IMAGE = "https://images.unsplash.com/photo-1599859725763-4a16c9468890?crop=entropy&cs=srgb&fm=jpg&q=85&w=2000";
+// Main background image (user-provided futuristic Moroccan riad).
+const BG_IMAGE = "https://customer-assets.emergentagent.com/job_darija-chat-ai/artifacts/iufk1c5m_Gemini_Generated_Image_hjdpn8hjdpn8hjdp.png";
 
 const VOICES = [
   { id: "nova", name: "Nova", desc: "Energetic" },
