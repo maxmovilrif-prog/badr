@@ -69,6 +69,19 @@ body {
     animation: cm-pulse-ring 1.4s infinite;
 }
 
+@keyframes cm-shimmer {
+    0% { background-position: -200% center; }
+    100% { background-position: 200% center; }
+}
+.cm-shimmer {
+    background: linear-gradient(90deg, rgba(103,232,249,0.55) 0%, rgba(255,255,255,0.95) 50%, rgba(103,232,249,0.55) 100%);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: cm-shimmer 1.8s linear infinite;
+}
+
 @layer base {
     [data-debug-wrapper="true"] {
         display: contents !important;

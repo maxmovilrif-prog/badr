@@ -1,0 +1,39 @@
+{
+  "summary": "Iteration 5 — validated the two NEW items: (1) Settings modal (gear icon -> SettingsModal) for upload retention + manual cleanup, and (2) animated 'Searching the web…' indicator shown in the assistant bubble while Tavily search is in progress. Backend: extended /app/backend/tests/test_chatmaroc_api.py with 3 new pytest tests (test_get_settings_default_shape, test_put_settings_persists_and_clamps, test_admin_cleanup_uploads). Full suite = 30/30 passing in 49s against REACT_APP_BACKEND_URL. Verified GET /api/settings returns {upload_ttl_hours, upload_ttl_seconds, web_search:true}; PUT /api/settings persists (24h round-trip via GET), clamps 9999 -> 720 and 0/-5 -> 1; POST /api/admin/cleanup-uploads returns {removed,ttl_seconds}. After tests, retention was reset to 6h via PUT /api/settings so auto-cleanup stays active. Frontend e2e on the production preview URL: (a) Settings — clicking [data-testid=settings-button] in the top bar opens [data-testid=settings-modal] with the loading spinner first, then the 6 retention chips render (retention-option-1, -6, -24, -72, -168, -720); clicking retention-option-24 fires PUT /api/settings, the toast 'Retention period updated' appears, and the chip gains the cyan-200 highlight class; closing via [data-testid=settings-close-button] removes the modal; reopening shows the previously-saved value highlighted (verified 24h persisted, then reset to 6h). cleanup-now-button calls /api/admin/cleanup-uploads and shows toast 'Cleaned 0 old file(s)'. (b) Web-searching indicator — enabling web search via web-search-toggle shows search-mode-chip; sending a 2026 query produces an assistant empty bubble that briefly renders [data-testid=web-searching-indicator] containing the text 'Searching the web…' (with .cm-shimmer animation), and as soon as Tavily resolves the indicator is removed and source cards appear; [data-testid=message-sources] renders 6 source cards; [data-testid=source-link-0] contains the title + a snippet line + a domain line (e.g. 'Top Tech News Today, January 30, 2026 - Tech Startups' + snippet + 'techstartups.com'); the answer streams in below the sources. (c) Regression — with web-search OFF, sending a plain message renders [data-testid=typing-indicator] (NOT web-searching-indicator); assistant reply streams; speak-button (TTS) is present and click triggers /api/tts; sidebar history-item is created; [data-testid=language-selector] has exactly 8 options including tamazight-souss; sign-language-record-button opens [data-testid=sign-language-modal] (in headless no mic/camera; closes cleanly). No JS console errors observed during the runs.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "SettingsModal", "issues": ["Modal panel background 'bg-black/60 backdrop-blur-2xl' lets the welcome page text and Moroccan background bleed through too much — the contents are readable but the panel looks translucent rather than a solid card. Consider bg-black/85 or adding a subtle solid surface (e.g. bg-slate-900/90) so the modal feels grounded over the background image."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_chatmaroc_api.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "[Optional/minor] Increase SettingsModal panel opacity for better visual grounding over the Moroccan background image."
+  ],
+  "critical_code_review_comments": [
+    "Minor: SettingsModal.jsx renders the panel with bg-black/60 — visually translucent over the busy background; consider bumping to bg-black/85 or bg-slate-900/90.",
+    "Minor: SettingsModal.jsx save() catches errors but swallows them silently with empty `catch {}` on the initial GET — fine, but consider logging to console for debuggability.",
+    "Minor (carried over): /api/web-search-chat now has the 20s Tavily timeout (good); /api/chat-with-file still doesn't expose retention TTL to the cleanup loop docs/UI but is now actually wired through configurable settings (good).",
+    "Minor: settings clamp range is hardcoded 1..720h in server.py — fine, but matches RETENTION_OPTIONS frontend exactly; if either side changes, the other must too. Consider exposing min/max from GET /api/settings.",
+    "Minor (carried over): /api/chat-with-file persists assistant reply with kind='text' even though user message is kind='file'; UI re-render of history loses the file badge.",
+    "Minor (carried over): logger is configured AFTER it is referenced inside async route handlers; functional but cleaner to move logging.basicConfig + getLogger above the routes.",
+    "Nice-to-have: SettingsModal could show the current retention value as a small caption (e.g. 'Currently: 6 hours') above the chip grid for clarity."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_chatmaroc_api.py",
+    "/app/test_reports/iteration_5.json",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "success_rate": {"backend": "100% (30/30 pytest)", "frontend": "100% of targeted flows"},
+  "test_credentials": "N/A (no auth)",
+  "seed_data_creation": "Tests use TEST_<uuid> session_id and TEST_client_<uuid> client_id; module teardown deletes messages for WS/CF/main sessions and remaining conversations. Settings tests mutate the db.settings 'config' doc and reset to 6h before exiting.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend test file /app/backend/tests/test_chatmaroc_api.py now has 30 tests including 3 new settings ones (default-shape, persists+clamps, admin-cleanup). The clamping test sets 24h then 9999 (->720) then 0 (->1) then -5 (->1) and finally resets to 6h. Frontend behavior to remember: SettingsModal mounts and immediately fetches GET /api/settings to seed `hours` state — on first paint the chips show a spinner; after fetch, the chip equal to `Math.round(upload_ttl_hours)` gets the cyan-200 highlight. PUT /api/settings is called on every retention chip click (no debounce, but `disabled={saving}`). The 'web-searching-indicator' is only shown while [m.id === searchingMsgId]; this id is set by pushTurnAndStream({searching:true}) before the SSE fetch resolves and cleared right after — to catch it in headless, poll [data-testid=web-searching-indicator] within ~5-6s of clicking send-button (verified live). Source cards render snippet (line 2) + domainOf(url) (line 3) under the title. Do NOT run concurrent watch-tasks against Playwright while also clicking — it can serialize and miss events. For the plain-text typing-indicator regression, click send and then poll [data-testid=typing-indicator] in a simple loop (no asyncio.create_task wrapping query_selector).",
+  "rca of the issue": "No product bugs identified. The only feedback is a cosmetic translucency issue with the Settings modal panel over the Moroccan background image."
+}

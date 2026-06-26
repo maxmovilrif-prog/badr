@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import {
   Send, Mic, Square, Camera, Sparkles, Loader2, Volume2, VolumeX,
-  Menu, X, ChevronDown, Hand, AudioLines, Paperclip, Globe, FileText, ExternalLink,
+  Menu, X, ChevronDown, Hand, AudioLines, Paperclip, Globe, FileText, ExternalLink, Settings,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup,
@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Sidebar } from "@/components/Sidebar";
 import { SignLanguageRecorder } from "@/components/SignLanguageRecorder";
+import { SettingsModal } from "@/components/SettingsModal";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -67,6 +68,8 @@ export default function ChatMaroc() {
   const [pendingFile, setPendingFile] = useState(null);
   const [searchMode, setSearchMode] = useState(false);
   const [webSearchAvailable, setWebSearchAvailable] = useState(false);
+  const [searchingMsgId, setSearchingMsgId] = useState(null);
+  const [showSettings, setShowSettings] = useState(false);
 
   const scrollRef = useRef(null);
   const audioRecorderRef = useRef(null);
@@ -226,12 +229,14 @@ export default function ChatMaroc() {
     return fullText;
   };
 
-  const pushTurnAndStream = async (userMsg, fetchFactory) => {
+  const pushTurnAndStream = async (userMsg, fetchFactory, opts = {}) => {
     setStreaming(true);
     const aiId = `a_${Date.now()}`;
+    if (opts.searching) setSearchingMsgId(aiId);
     setMessages((prev) => [...prev, userMsg, { id: aiId, role: "assistant", content: "", kind: "text" }]);
     try {
       const res = await fetchFactory();
+      setSearchingMsgId(null);
       if (!res.ok || !res.body) {
         let detail = "Network error";
         try { detail = (await res.json()).detail || detail; } catch {}
@@ -245,6 +250,7 @@ export default function ChatMaroc() {
       setMessages((prev) => prev.map((m) => m.id === aiId ? { ...m, content: m.content || "⚠️ Connection error." } : m));
     } finally {
       setStreaming(false);
+      setSearchingMsgId(null);
     }
   };
 
@@ -269,7 +275,7 @@ export default function ChatMaroc() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ session_id: convId, message: text, language }),
       });
-    });
+    }, { searching: true });
   };
 
   const fileChat = (file, text) => {
@@ -464,6 +470,15 @@ export default function ChatMaroc() {
 
           <div className="flex items-center gap-2">
             <button
+              onClick={() => setShowSettings(true)}
+              className="p-2 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+              aria-label="Open settings"
+              title="Settings"
+              data-testid="settings-button"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
+            <button
               onClick={() => { if (autoSpeak) stopSpeaking(); setAutoSpeak((v) => !v); }}
               className={`p-2 rounded-full transition-colors ${autoSpeak ? "text-cyan-300 bg-white/5" : "text-slate-400 hover:bg-white/10"}`}
               aria-label={autoSpeak ? "Disable voice replies" : "Enable voice replies"}
@@ -606,11 +621,18 @@ export default function ChatMaroc() {
                                 </button>
                               </>
                             ) : (
-                              <span className="inline-flex gap-1 py-2" data-testid="typing-indicator">
-                                <span className="w-2 h-2 rounded-full bg-cyan-300/70 animate-bounce" style={{ animationDelay: "0ms" }} />
-                                <span className="w-2 h-2 rounded-full bg-cyan-300/70 animate-bounce" style={{ animationDelay: "150ms" }} />
-                                <span className="w-2 h-2 rounded-full bg-cyan-300/70 animate-bounce" style={{ animationDelay: "300ms" }} />
-                              </span>
+                              m.id === searchingMsgId ? (
+                                <span className="inline-flex items-center gap-2 py-2 text-sm" data-testid="web-searching-indicator">
+                                  <Globe className="w-4 h-4 text-cyan-300 animate-spin" style={{ animationDuration: "2s" }} />
+                                  <span className="cm-shimmer font-medium">Searching the web…</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex gap-1 py-2" data-testid="typing-indicator">
+                                  <span className="w-2 h-2 rounded-full bg-cyan-300/70 animate-bounce" style={{ animationDelay: "0ms" }} />
+                                  <span className="w-2 h-2 rounded-full bg-cyan-300/70 animate-bounce" style={{ animationDelay: "150ms" }} />
+                                  <span className="w-2 h-2 rounded-full bg-cyan-300/70 animate-bounce" style={{ animationDelay: "300ms" }} />
+                                </span>
+                              )
                             )}
                           </div>
                         </div>
@@ -737,6 +759,12 @@ export default function ChatMaroc() {
       <AnimatePresence>
         {showCamera && (
           <SignLanguageRecorder onClose={() => setShowCamera(false)} onSend={handleSendSign} sending={sendingSign} />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showSettings && (
+          <SettingsModal api={API} onClose={() => setShowSettings(false)} />
         )}
       </AnimatePresence>
     </div>

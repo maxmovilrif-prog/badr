@@ -116,6 +116,10 @@ class ConversationUpdate(BaseModel):
     title: str
 
 
+class SettingsUpdate(BaseModel):
+    upload_ttl_hours: int
+
+
 # ---------- Helpers ----------
 async def save_message(session_id: str, role: str, content: str, kind: str = "text", language: Optional[str] = None, sources: Optional[List[dict]] = None) -> Message:
     msg = Message(session_id=session_id, role=role, content=content, kind=kind, language=language, sources=sources)
@@ -432,10 +436,40 @@ def cleanup_old_uploads(ttl_seconds: int = UPLOAD_TTL_SECONDS) -> int:
     return removed
 
 
+async def get_upload_ttl_seconds() -> int:
+    doc = await db.settings.find_one({"key": "config"}, {"_id": 0})
+    if doc and isinstance(doc.get("upload_ttl_seconds"), int):
+        return doc["upload_ttl_seconds"]
+    return UPLOAD_TTL_SECONDS
+
+
 @api_router.post("/admin/cleanup-uploads")
 async def admin_cleanup_uploads(ttl_seconds: Optional[int] = None):
-    removed = cleanup_old_uploads(ttl_seconds if ttl_seconds is not None else UPLOAD_TTL_SECONDS)
-    return {"removed": removed, "ttl_seconds": ttl_seconds if ttl_seconds is not None else UPLOAD_TTL_SECONDS}
+    ttl = ttl_seconds if ttl_seconds is not None else await get_upload_ttl_seconds()
+    removed = cleanup_old_uploads(ttl)
+    return {"removed": removed, "ttl_seconds": ttl}
+
+
+@api_router.get("/settings")
+async def get_settings():
+    ttl = await get_upload_ttl_seconds()
+    return {
+        "upload_ttl_hours": round(ttl / 3600, 2),
+        "upload_ttl_seconds": ttl,
+        "web_search": bool(TAVILY_API_KEY and TavilyClient is not None),
+    }
+
+
+@api_router.put("/settings")
+async def update_settings(req: SettingsUpdate):
+    hours = max(1, min(req.upload_ttl_hours, 720))
+    ttl = int(hours * 3600)
+    await db.settings.update_one(
+        {"key": "config"},
+        {"$set": {"key": "config", "upload_ttl_seconds": ttl, "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True,
+    )
+    return {"upload_ttl_hours": hours, "upload_ttl_seconds": ttl}
 
 
 @api_router.post("/transcribe")
@@ -543,7 +577,8 @@ async def _cleanup_loop():
     while True:
         await asyncio.sleep(CLEANUP_INTERVAL_SECONDS)
         try:
-            cleanup_old_uploads()
+            ttl = await get_upload_ttl_seconds()
+            cleanup_old_uploads(ttl)
         except Exception as e:
             logger.error(f"Cleanup loop error: {e}")
 
@@ -551,7 +586,8 @@ async def _cleanup_loop():
 @app.on_event("startup")
 async def start_cleanup_task():
     try:
-        cleanup_old_uploads()
+        ttl = await get_upload_ttl_seconds()
+        cleanup_old_uploads(ttl)
     except Exception as e:
         logger.error(f"Initial cleanup error: {e}")
     app.state.cleanup_task = asyncio.create_task(_cleanup_loop())

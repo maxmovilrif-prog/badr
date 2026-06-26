@@ -439,6 +439,63 @@ def test_chat_with_file_empty(session):
     assert r.status_code == 400, f"expected 400, got {r.status_code}: {r.text[:200]}"
 
 
+# ---- Settings (new) ----
+def test_get_settings_default_shape(session):
+    r = session.get(f"{API}/settings", timeout=10)
+    assert r.status_code == 200, r.text
+    d = r.json()
+    assert "upload_ttl_hours" in d
+    assert "upload_ttl_seconds" in d
+    assert "web_search" in d
+    assert isinstance(d["upload_ttl_seconds"], int)
+    assert d["upload_ttl_seconds"] > 0
+    assert d["web_search"] is True
+
+
+def test_put_settings_persists_and_clamps(session):
+    # set to 24h
+    r = session.put(f"{API}/settings", json={"upload_ttl_hours": 24}, timeout=10)
+    assert r.status_code == 200, r.text
+    d = r.json()
+    assert d["upload_ttl_hours"] == 24
+    assert d["upload_ttl_seconds"] == 24 * 3600
+
+    # GET reflects it
+    g = session.get(f"{API}/settings", timeout=10).json()
+    assert g["upload_ttl_seconds"] == 24 * 3600
+    assert round(g["upload_ttl_hours"]) == 24
+
+    # clamp high (>720 -> 720)
+    r2 = session.put(f"{API}/settings", json={"upload_ttl_hours": 9999}, timeout=10)
+    assert r2.status_code == 200
+    assert r2.json()["upload_ttl_hours"] == 720
+    assert r2.json()["upload_ttl_seconds"] == 720 * 3600
+
+    # clamp low (<1 -> 1)
+    r3 = session.put(f"{API}/settings", json={"upload_ttl_hours": 0}, timeout=10)
+    assert r3.status_code == 200
+    assert r3.json()["upload_ttl_hours"] == 1
+    assert r3.json()["upload_ttl_seconds"] == 3600
+
+    # negative also clamps to 1
+    r4 = session.put(f"{API}/settings", json={"upload_ttl_hours": -5}, timeout=10)
+    assert r4.status_code == 200
+    assert r4.json()["upload_ttl_hours"] == 1
+
+    # reset to a small value (6h) so auto-cleanup stays active
+    rr = session.put(f"{API}/settings", json={"upload_ttl_hours": 6}, timeout=10)
+    assert rr.status_code == 200
+    assert rr.json()["upload_ttl_hours"] == 6
+
+
+def test_admin_cleanup_uploads(session):
+    r = session.post(f"{API}/admin/cleanup-uploads", timeout=15)
+    assert r.status_code == 200, r.text
+    d = r.json()
+    assert "removed" in d and isinstance(d["removed"], int) and d["removed"] >= 0
+    assert "ttl_seconds" in d and isinstance(d["ttl_seconds"], int) and d["ttl_seconds"] > 0
+
+
 def test_cleanup_new_feature_sessions(session):
     for sid in (WS_SESSION_ID, CF_SESSION_ID):
         try:
