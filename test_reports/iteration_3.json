@@ -1,0 +1,32 @@
+{
+  "summary": "Iteration 3 (premium glassmorphism redesign + multi-conversation backend). Added 7 new pytest tests for the conversation CRUD: create, list (sorted updated_at desc), auto-titling on first /api/chat, rename + persistence, title truncation at 60 chars, delete cascades to messages, and cleanup. Full suite is now 19/19 passing against the public REACT_APP_BACKEND_URL. Regression: /api/chat SSE streams deltas+done, /api/tts returns 200 audio/mpeg, /api/transcribe reachable, /api/process-sign-language returns simulated gesture, /api/languages returns 8 langs incl tamazight-souss. Frontend e2e on production preview URL covered the entire spec: empty state ('How can I help you?' + 4 suggestion chips + 'No conversations yet'), Darija send creates conversation lazily (POST /api/conversations -> 200), user+assistant bubbles with typing-indicator, sidebar history-item appears with auto-derived title, Listen button fires POST /api/tts -> 200, rename via hover + rename-input + rename-confirm updates title (PATCH -> 200), New chat resets to empty state, reselecting history-item reloads messages, suggestion chip flow creates a second conversation, delete-conversation-btn removes the item (DELETE -> 200) with success toast, voice-selector dropdown lists all 7 voice-option-* radios, language-selector <select> contains exactly the 8 expected keys including tamazight-souss, auto-speak-toggle flips its aria-label between 'Enable/Disable voice replies', sign-language-modal opens, shows sign-language-error gracefully in headless, and is dismissed via sign-language-close-button. No JS errors observed. No bugs found.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_chatmaroc_api.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Minor (carried over): server.py logger is defined AFTER it is referenced inside async route handlers; functional but cleaner to move logging.basicConfig + getLogger above the routes.",
+    "Minor: ensureConversation() in ChatMaroc.jsx is not atomic — if a user double-taps Send very fast before activeIdRef is set, two POST /api/conversations could fire. Add a 'creating' lock or use the returned id from the first in-flight promise.",
+    "Minor: deleteConversation() in ChatMaroc.jsx fires DELETE without awaiting the response; the optimistic UI update is fine, but a failed DELETE leaves the UI inconsistent with the server. Consider revert-on-failure or at least a toast.error.",
+    "Minor (carried over): speak() does not abort an in-flight TTS fetch when user toggles Stop while TTS is still being generated.",
+    "Minor (carried over): TTS-generated Blob URL is only revoked in audio.onended — stopping mid-playback leaks the object URL.",
+    "Minor (carried over): uploaded audio/sign-video webm files in /uploads/* are never cleaned up.",
+    "Nice-to-have: /api/conversations has no client_id authorization — any client_id is accepted. Acceptable for an unauthenticated demo, but worth noting if auth is later introduced.",
+    "Nice-to-have: rename_conversation truncates title server-side at 60 chars silently; consider Pydantic max_length validation to reject overly long input with 400 instead of silent truncation."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_chatmaroc_api.py",
+    "/app/test_reports/iteration_3.json",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "success_rate": {"backend": "100% (19/19 pytest)", "frontend": "100% of targeted flows"},
+  "test_credentials": "N/A (no auth)",
+  "seed_data_creation": "Tests use TEST_<uuid> session_id and TEST_client_<uuid> client_id; module teardown wipes messages + remaining conversations.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend test file /app/backend/tests/test_chatmaroc_api.py now has 19 tests including 7 new conversation tests (test_create_conversation, test_list_conversations, test_chat_auto_titles_conversation, test_rename_conversation, test_rename_conversation_truncates, test_delete_conversation_and_messages, test_cleanup_remaining_conversations). The auto-title test depends on the chat SSE finishing — keep the 60s timeout. Frontend behavior: ensureConversation() lazily creates a conversation on first send, so the 'POST /api/conversations -> 200' fires only when user actually sends a message. The previous clear-chat-button was removed; use delete-conversation-btn inside hovered history-item instead. language-selector is now a native <select> — query via element.options to enumerate. Minor playwright flake to remember: after clicking sign-language-close-button, the modal's framer-motion exit animation can take >500ms — wait at least 800ms before asserting it's gone from the DOM.",
+  "rca of the issue": "No product bugs identified in iteration 3."
+}

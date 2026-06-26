@@ -8,7 +8,7 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        heading: ['EB Garamond', 'serif'],
+        heading: ['Outfit', 'sans-serif'],
         body: ['Figtree', 'sans-serif'],
         sans: ['Figtree', 'sans-serif'],
       },

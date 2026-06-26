@@ -180,3 +180,121 @@ def test_clear_messages(session):
     r2 = session.get(f"{API}/messages/{SESSION_ID}", timeout=10)
     assert r2.status_code == 200
     assert r2.json() == []
+
+
+
+# ---- Conversations CRUD ----
+CLIENT_ID = f"TEST_client_{uuid.uuid4().hex[:8]}"
+
+
+def test_create_conversation(session):
+    r = session.post(f"{API}/conversations", json={"client_id": CLIENT_ID}, timeout=10)
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert "id" in data
+    assert data["client_id"] == CLIENT_ID
+    assert data["title"] == "New chat"
+    assert "created_at" in data
+    assert "updated_at" in data
+    pytest.conv_id_a = data["id"]
+
+
+def test_list_conversations(session):
+    # Create another to confirm sorting by updated_at desc
+    time.sleep(1)
+    r2 = session.post(f"{API}/conversations", json={"client_id": CLIENT_ID}, timeout=10)
+    assert r2.status_code == 200
+    pytest.conv_id_b = r2.json()["id"]
+
+    r = session.get(f"{API}/conversations", params={"client_id": CLIENT_ID}, timeout=10)
+    assert r.status_code == 200
+    convs = r.json()
+    assert isinstance(convs, list)
+    ids = [c["id"] for c in convs]
+    assert pytest.conv_id_a in ids
+    assert pytest.conv_id_b in ids
+    # The most recently created (b) should come before a
+    assert ids.index(pytest.conv_id_b) < ids.index(pytest.conv_id_a)
+
+
+def test_chat_auto_titles_conversation(session):
+    conv_id = pytest.conv_id_a
+    first_msg = "كيفاش نطيب طاجين د الدجاج؟"
+    with session.post(
+        f"{API}/chat",
+        json={"session_id": conv_id, "message": first_msg, "language": "darija", "kind": "text"},
+        stream=True, timeout=60,
+    ) as r:
+        assert r.status_code == 200
+        # consume stream
+        for line in r.iter_lines(decode_unicode=True):
+            if line and line.startswith("data:") and '"done"' in line:
+                break
+
+    time.sleep(0.5)
+    r2 = session.get(f"{API}/conversations", params={"client_id": CLIENT_ID}, timeout=10)
+    assert r2.status_code == 200
+    convs = r2.json()
+    target = next((c for c in convs if c["id"] == conv_id), None)
+    assert target is not None
+    # title should now be derived from the first message (not "New chat")
+    assert target["title"] != "New chat"
+    assert target["title"].startswith(first_msg[:10])
+    # preview should reflect message
+    assert first_msg[:20] in target["preview"]
+    # conv_id_a should now be at top (more recent updated_at)
+    assert convs[0]["id"] == conv_id
+
+
+def test_rename_conversation(session):
+    conv_id = pytest.conv_id_b
+    new_title = "My Renamed Chat"
+    r = session.patch(f"{API}/conversations/{conv_id}", json={"title": new_title}, timeout=10)
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["title"] == new_title
+    # Verify persistence
+    r2 = session.get(f"{API}/conversations", params={"client_id": CLIENT_ID}, timeout=10)
+    target = next((c for c in r2.json() if c["id"] == conv_id), None)
+    assert target is not None
+    assert target["title"] == new_title
+
+
+def test_rename_conversation_truncates(session):
+    conv_id = pytest.conv_id_b
+    long_title = "x" * 200
+    r = session.patch(f"{API}/conversations/{conv_id}", json={"title": long_title}, timeout=10)
+    assert r.status_code == 200
+    # backend truncates at 60
+    assert len(r.json()["title"]) <= 60
+
+
+def test_delete_conversation_and_messages(session):
+    conv_id = pytest.conv_id_a
+    # Ensure messages exist for this conversation (from auto-title test)
+    r_msgs = session.get(f"{API}/messages/{conv_id}", timeout=10)
+    assert r_msgs.status_code == 200
+    assert len(r_msgs.json()) >= 1
+
+    r = session.delete(f"{API}/conversations/{conv_id}", timeout=10)
+    assert r.status_code == 200
+    assert r.json().get("deleted", 0) == 1
+
+    # messages must be wiped
+    r2 = session.get(f"{API}/messages/{conv_id}", timeout=10)
+    assert r2.status_code == 200
+    assert r2.json() == []
+
+    # conversation no longer listed
+    r3 = session.get(f"{API}/conversations", params={"client_id": CLIENT_ID}, timeout=10)
+    ids = [c["id"] for c in r3.json()]
+    assert conv_id not in ids
+
+
+def test_cleanup_remaining_conversations(session):
+    # Final cleanup: delete remaining test conversations
+    r = session.get(f"{API}/conversations", params={"client_id": CLIENT_ID}, timeout=10)
+    for c in r.json():
+        session.delete(f"{API}/conversations/{c['id']}", timeout=10)
+    r2 = session.get(f"{API}/conversations", params={"client_id": CLIENT_ID}, timeout=10)
+    assert r2.json() == []

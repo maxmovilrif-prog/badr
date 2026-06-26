@@ -83,6 +83,24 @@ class TtsRequest(BaseModel):
     language: str = "darija"
 
 
+class Conversation(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    client_id: str
+    title: str = "New chat"
+    preview: str = ""
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+
+class ConversationCreate(BaseModel):
+    client_id: str
+    title: Optional[str] = None
+
+
+class ConversationUpdate(BaseModel):
+    title: str
+
+
 # ---------- Helpers ----------
 async def save_message(session_id: str, role: str, content: str, kind: str = "text", language: Optional[str] = None) -> Message:
     msg = Message(session_id=session_id, role=role, content=content, kind=kind, language=language)
@@ -98,6 +116,20 @@ async def build_history_context(session_id: str, limit: int = 16) -> str:
         return ""
     lines = [("User: " + d["content"]) if d["role"] == "user" else ("Assistant: " + d["content"]) for d in docs]
     return "\n\nRecent conversation so far:\n" + "\n".join(lines)
+
+
+async def touch_conversation(conversation_id: str, last_user_message: Optional[str] = None):
+    """Update a conversation's updated_at, preview, and auto-title (from first message)."""
+    conv = await db.conversations.find_one({"id": conversation_id}, {"_id": 0})
+    if not conv:
+        return
+    update = {"updated_at": datetime.now(timezone.utc).isoformat()}
+    if last_user_message:
+        update["preview"] = last_user_message[:80]
+        if conv.get("title") in (None, "", "New chat"):
+            title = last_user_message.strip().split("\n")[0][:42]
+            update["title"] = title or "New chat"
+    await db.conversations.update_one({"id": conversation_id}, {"$set": update})
 
 
 def make_chat(session_id: str, language: str, history: str) -> LlmChat:
@@ -149,6 +181,38 @@ async def get_languages():
     return {"languages": [{"key": k, "label": v["label"]} for k, v in LANGUAGES.items()]}
 
 
+@api_router.post("/conversations", response_model=Conversation)
+async def create_conversation(req: ConversationCreate):
+    conv = Conversation(client_id=req.client_id, title=req.title or "New chat")
+    await db.conversations.insert_one(conv.model_dump())
+    return conv
+
+
+@api_router.get("/conversations", response_model=List[Conversation])
+async def list_conversations(client_id: str):
+    docs = await db.conversations.find({"client_id": client_id}, {"_id": 0}).sort("updated_at", -1).to_list(200)
+    return docs
+
+
+@api_router.patch("/conversations/{conversation_id}", response_model=Conversation)
+async def rename_conversation(conversation_id: str, req: ConversationUpdate):
+    await db.conversations.update_one(
+        {"id": conversation_id},
+        {"$set": {"title": req.title[:60], "updated_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    conv = await db.conversations.find_one({"id": conversation_id}, {"_id": 0})
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return conv
+
+
+@api_router.delete("/conversations/{conversation_id}")
+async def delete_conversation(conversation_id: str):
+    await db.messages.delete_many({"session_id": conversation_id})
+    res = await db.conversations.delete_one({"id": conversation_id})
+    return {"deleted": res.deleted_count}
+
+
 @api_router.get("/messages/{session_id}", response_model=List[Message])
 async def get_messages(session_id: str):
     docs = await db.messages.find({"session_id": session_id}, {"_id": 0}).sort("timestamp", 1).to_list(1000)
@@ -166,6 +230,7 @@ async def chat(req: ChatRequest):
     if not req.message.strip():
         raise HTTPException(status_code=400, detail="Empty message")
     await save_message(req.session_id, "user", req.message, kind=req.kind, language=req.language)
+    await touch_conversation(req.session_id, req.message)
     history = await build_history_context(req.session_id)
     chat_client = make_chat(req.session_id, req.language, history)
 
@@ -266,6 +331,7 @@ async def process_sign_language(session_id: str = Form(...), video: UploadFile =
 
     note = f"[Sign language video] Recognized gesture (simulated): {recognized}"
     await save_message(session_id, "user", note, kind="sign", language=language)
+    await touch_conversation(session_id, note)
 
     return {
         "id": file_id,

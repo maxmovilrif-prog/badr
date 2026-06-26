@@ -2,21 +2,19 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import {
-  Send, Mic, Square, Camera, Sparkles, Trash2, Loader2, Hand, Volume2, VolumeX,
+  Send, Mic, Square, Camera, Sparkles, Loader2, Volume2, VolumeX,
+  Menu, X, ChevronDown, Hand, AudioLines,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup,
   DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Sidebar } from "@/components/Sidebar";
 import { SignLanguageRecorder } from "@/components/SignLanguageRecorder";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-// Main background image (user-provided futuristic Moroccan riad).
+// User-provided futuristic Moroccan riad background (kept as fixed page background).
 const BG_IMAGE = "https://customer-assets.emergentagent.com/job_darija-chat-ai/artifacts/iufk1c5m_Gemini_Generated_Image_hjdpn8hjdpn8hjdp.png";
 
 const VOICES = [
@@ -29,23 +27,26 @@ const VOICES = [
   { id: "fable", name: "Fable", desc: "Expressive" },
 ];
 
-const getSessionId = () => {
-  let id = localStorage.getItem("chatmaroc_session");
+const SUGGESTIONS = [
+  { label: "كيفاش نطيب طاجين؟", sub: "How do I cook a tajine?" },
+  { label: "ⵎⴰⵏ ⴰⵢ ⵜⴻⵍⵍⵉⴷ?", sub: "Greet me in Tamazight" },
+  { label: "Raconte-moi un proverbe marocain", sub: "A Moroccan proverb" },
+  { label: "Plan a 3-day trip to Marrakech", sub: "Travel ideas" },
+];
+
+const getClientId = () => {
+  let id = localStorage.getItem("chatmaroc_client");
   if (!id) {
-    id = `cm_${Math.random().toString(36).slice(2)}_${Date.now()}`;
-    localStorage.setItem("chatmaroc_session", id);
+    id = `cl_${Math.random().toString(36).slice(2)}_${Date.now()}`;
+    localStorage.setItem("chatmaroc_client", id);
   }
   return id;
 };
 
-const SUGGESTIONS = [
-  { label: "كيفاش نطيب طاجين؟", sub: "How do I cook a tajine?" },
-  { label: "ⵎⴰⵏ ⴰⵢ ⵜⴻⵍⵍⵉⴷ?", sub: "Where are you? (Tamazight)" },
-  { label: "Raconte-moi un proverbe marocain", sub: "A Moroccan proverb" },
-];
-
 export default function ChatMaroc() {
-  const [sessionId] = useState(getSessionId);
+  const [clientId] = useState(getClientId);
+  const [conversations, setConversations] = useState([]);
+  const [activeId, setActiveId] = useState(null);
   const [languages, setLanguages] = useState([]);
   const [language, setLanguage] = useState("darija");
   const [messages, setMessages] = useState([]);
@@ -59,6 +60,7 @@ export default function ChatMaroc() {
   const [voice, setVoice] = useState(() => localStorage.getItem("chatmaroc_voice") || "nova");
   const [speakingId, setSpeakingId] = useState(null);
   const [ttsLoadingId, setTtsLoadingId] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const scrollRef = useRef(null);
   const audioRecorderRef = useRef(null);
@@ -67,6 +69,9 @@ export default function ChatMaroc() {
   const textareaRef = useRef(null);
   const ttsAudioRef = useRef(null);
   const ttsUrlRef = useRef(null);
+  const activeIdRef = useRef(null);
+
+  useEffect(() => { activeIdRef.current = activeId; }, [activeId]);
 
   const scrollToBottom = useCallback(() => {
     requestAnimationFrame(() => {
@@ -74,22 +79,76 @@ export default function ChatMaroc() {
     });
   }, []);
 
+  const loadConversations = useCallback(async () => {
+    try {
+      const r = await fetch(`${API}/conversations?client_id=${clientId}`);
+      const d = await r.json();
+      if (Array.isArray(d)) setConversations(d);
+      return d;
+    } catch { return []; }
+  }, [clientId]);
+
   useEffect(() => {
     fetch(`${API}/languages`).then((r) => r.json()).then((d) => setLanguages(d.languages || [])).catch(() => {});
-    fetch(`${API}/messages/${sessionId}`).then((r) => r.json()).then((d) => Array.isArray(d) && setMessages(d)).catch(() => {});
-  }, [sessionId]);
+    loadConversations();
+  }, [loadConversations]);
 
   useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
 
+  const loadMessages = useCallback(async (id) => {
+    try {
+      const r = await fetch(`${API}/messages/${id}`);
+      const d = await r.json();
+      setMessages(Array.isArray(d) ? d : []);
+    } catch { setMessages([]); }
+  }, []);
+
+  const selectConversation = (id) => {
+    setActiveId(id);
+    setSidebarOpen(false);
+    loadMessages(id);
+  };
+
+  const newChat = () => {
+    setActiveId(null);
+    setMessages([]);
+    setSidebarOpen(false);
+  };
+
+  const ensureConversation = async () => {
+    if (activeIdRef.current) return activeIdRef.current;
+    const r = await fetch(`${API}/conversations`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ client_id: clientId }),
+    });
+    const conv = await r.json();
+    setActiveId(conv.id);
+    activeIdRef.current = conv.id;
+    setConversations((prev) => [conv, ...prev]);
+    return conv.id;
+  };
+
+  const renameConversation = async (id, title) => {
+    setConversations((prev) => prev.map((c) => c.id === id ? { ...c, title } : c));
+    await fetch(`${API}/conversations/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title }),
+    }).catch(() => {});
+  };
+
+  const deleteConversation = async (id) => {
+    await fetch(`${API}/conversations/${id}`, { method: "DELETE" }).catch(() => {});
+    setConversations((prev) => prev.filter((c) => c.id !== id));
+    if (activeIdRef.current === id) { newChat(); }
+    toast.success("Conversation deleted");
+  };
+
+  // ---------- TTS ----------
   const stopSpeaking = useCallback(() => {
-    if (ttsAudioRef.current) {
-      ttsAudioRef.current.pause();
-      ttsAudioRef.current = null;
-    }
-    if (ttsUrlRef.current) {
-      URL.revokeObjectURL(ttsUrlRef.current);
-      ttsUrlRef.current = null;
-    }
+    if (ttsAudioRef.current) { ttsAudioRef.current.pause(); ttsAudioRef.current = null; }
+    if (ttsUrlRef.current) { URL.revokeObjectURL(ttsUrlRef.current); ttsUrlRef.current = null; }
     setSpeakingId(null);
   }, []);
 
@@ -111,17 +170,19 @@ export default function ChatMaroc() {
       const audio = new Audio(url);
       ttsAudioRef.current = audio;
       audio.onended = () => { setSpeakingId(null); URL.revokeObjectURL(url); ttsUrlRef.current = null; };
-      audio.onerror = () => { setSpeakingId(null); };
+      audio.onerror = () => setSpeakingId(null);
       setSpeakingId(id);
       await audio.play();
-    } catch (e) {
+    } catch {
       toast.error("Voice playback failed.");
     } finally {
       setTtsLoadingId(null);
     }
   }, [speakingId, stopSpeaking, voice, language]);
 
+  // ---------- Chat ----------
   const streamChat = async (text, kind = "text") => {
+    const convId = await ensureConversation();
     setStreaming(true);
     const userMsg = { id: `u_${Date.now()}`, role: "user", content: text, kind };
     const aiId = `a_${Date.now()}`;
@@ -131,7 +192,7 @@ export default function ChatMaroc() {
       const res = await fetch(`${API}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_id: sessionId, message: text, language, kind }),
+        body: JSON.stringify({ session_id: convId, message: text, language, kind }),
       });
       if (!res.ok || !res.body) throw new Error("Network error");
       const reader = res.body.getReader();
@@ -156,10 +217,9 @@ export default function ChatMaroc() {
           }
         }
       }
-      if (autoSpeak && fullText.trim()) {
-        speak(fullText, aiId);
-      }
-    } catch (e) {
+      loadConversations();
+      if (autoSpeak && fullText.trim()) speak(fullText, aiId);
+    } catch {
       toast.error("Could not reach ChatMaroc. Please try again.");
       setMessages((prev) => prev.map((m) => m.id === aiId ? { ...m, content: m.content || "⚠️ Connection error." } : m));
     } finally {
@@ -175,7 +235,7 @@ export default function ChatMaroc() {
     streamChat(text, "text");
   };
 
-  // ---- Audio voice message ----
+  // ---------- Voice ----------
   const startAudio = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -192,15 +252,12 @@ export default function ChatMaroc() {
       audioRecorderRef.current = rec;
       rec.start();
       setRecordingAudio(true);
-    } catch (e) {
+    } catch {
       toast.error("Microphone access denied.");
     }
   };
 
-  const stopAudio = () => {
-    audioRecorderRef.current?.stop();
-    setRecordingAudio(false);
-  };
+  const stopAudio = () => { audioRecorderRef.current?.stop(); setRecordingAudio(false); };
 
   const transcribeAndSend = async (blob) => {
     setTranscribing(true);
@@ -214,19 +271,20 @@ export default function ChatMaroc() {
       const text = (data.text || "").trim();
       if (!text) { toast.error("Couldn't hear anything. Try again."); return; }
       await streamChat(text, "voice");
-    } catch (e) {
+    } catch {
       toast.error("Voice transcription failed.");
     } finally {
       setTranscribing(false);
     }
   };
 
-  // ---- Sign language video ----
+  // ---------- Sign language ----------
   const handleSendSign = async (blob) => {
     setSendingSign(true);
     try {
+      const convId = await ensureConversation();
       const fd = new FormData();
-      fd.append("session_id", sessionId);
+      fd.append("session_id", convId);
       fd.append("video", blob, "sign.webm");
       fd.append("language", language);
       const res = await fetch(`${API}/process-sign-language`, { method: "POST", body: fd });
@@ -237,281 +295,285 @@ export default function ChatMaroc() {
       const signNote = `🤟 Sign gesture recognized: "${data.recognized_gesture}" — ${Math.round(data.confidence * 100)}% confidence`;
       setMessages((prev) => [...prev, { id: `s_${Date.now()}`, role: "user", content: signNote, kind: "sign" }]);
       await streamChat(`The user signed: "${data.recognized_gesture}". Respond helpfully.`, "sign-hidden");
-    } catch (e) {
+    } catch {
       toast.error("Could not process the sign language video.");
     } finally {
       setSendingSign(false);
     }
   };
 
-  const clearChat = async () => {
-    stopSpeaking();
-    await fetch(`${API}/messages/${sessionId}`, { method: "DELETE" }).catch(() => {});
-    setMessages([]);
-    toast.success("Conversation cleared");
-  };
-
   const currentLangLabel = languages.find((l) => l.key === language)?.label || "Darija";
+  const currentVoice = VOICES.find((v) => v.id === voice)?.name || "Nova";
 
   return (
-    <div className="relative min-h-screen flex flex-col">
-      {/* Background image layer + readability overlay */}
-      <div
-        className="fixed inset-0 -z-10 bg-cover bg-center bg-no-repeat"
-        style={{ backgroundImage: `url(${BG_IMAGE})` }}
-        aria-hidden="true"
-        data-testid="app-background"
-      />
-      <div className="fixed inset-0 -z-10 bg-[#1b2b30]/55 backdrop-blur-[2px]" aria-hidden="true" />
+    <div className="fixed inset-0 flex overflow-hidden text-white font-body">
+      {/* Background image + overlay */}
+      <div className="fixed inset-0 -z-10 bg-cover bg-center" style={{ backgroundImage: `url(${BG_IMAGE})` }} aria-hidden="true" data-testid="app-background" />
+      <div className="fixed inset-0 -z-10 bg-[#050B14]/70" aria-hidden="true" />
 
-      {/* Header */}
-      <header
-        className="sticky top-0 z-30 backdrop-blur-xl bg-white/75 border-b border-white/40 shadow-sm"
-        data-testid="app-header"
-      >
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-[#264653] flex items-center justify-center shadow-md">
-              <Sparkles className="w-5 h-5 text-[#E9C46A]" />
-            </div>
-            <div>
-              <h1 className="font-heading text-2xl leading-none text-[#2C2E33]" data-testid="app-title">ChatMaroc</h1>
-              <p className="text-xs text-[#6B6A3A] mt-0.5">Darija · Tamazight · & more</p>
-            </div>
-          </div>
+      {/* Sidebar - desktop */}
+      <aside className="hidden md:flex w-72 flex-shrink-0 h-full border-r border-white/10 bg-black/30 backdrop-blur-2xl z-40">
+        <Sidebar
+          conversations={conversations}
+          activeId={activeId}
+          onSelect={selectConversation}
+          onNew={newChat}
+          onDelete={deleteConversation}
+          onRename={renameConversation}
+          languages={languages}
+          language={language}
+          onLanguageChange={setLanguage}
+        />
+      </aside>
+
+      {/* Sidebar - mobile drawer */}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <>
+            <motion.div
+              className="md:hidden fixed inset-0 bg-black/60 z-40"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setSidebarOpen(false)}
+            />
+            <motion.aside
+              className="md:hidden fixed inset-y-0 left-0 w-72 z-50 bg-black/70 backdrop-blur-2xl border-r border-white/10"
+              initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }}
+              transition={{ type: "tween", duration: 0.25 }}
+              data-testid="mobile-sidebar"
+            >
+              <Sidebar
+                conversations={conversations}
+                activeId={activeId}
+                onSelect={selectConversation}
+                onNew={newChat}
+                onDelete={deleteConversation}
+                onRename={renameConversation}
+                languages={languages}
+                language={language}
+                onLanguageChange={setLanguage}
+              />
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Main */}
+      <div className="flex-1 flex flex-col relative h-full overflow-hidden">
+        {/* Top bar */}
+        <header className="h-14 px-3 sm:px-5 flex items-center justify-between bg-black/20 backdrop-blur-md border-b border-white/5 z-30">
           <div className="flex items-center gap-2">
-            <Select value={language} onValueChange={setLanguage}>
-              <SelectTrigger
-                className="w-[170px] rounded-full border-[#E5E1D8] bg-white/80 focus:ring-2 focus:ring-[#2A9D8F]"
-                data-testid="language-selector"
-              >
-                <SelectValue placeholder="Language" />
-              </SelectTrigger>
-              <SelectContent>
-                {languages.map((l) => (
-                  <SelectItem key={l.key} value={l.key} data-testid={`language-option-${l.key}`}>
-                    {l.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              variant="ghost"
-              size="icon"
+            <button
+              className="md:hidden p-2 rounded-lg hover:bg-white/10 text-white transition-colors"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Open menu"
+              data-testid="sidebar-toggle"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <span className="flex items-center gap-2 text-sm text-slate-300">
+              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+              Claude Sonnet 4.6
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
               onClick={() => { if (autoSpeak) stopSpeaking(); setAutoSpeak((v) => !v); }}
-              className={`rounded-full hover:bg-[#F0EDE5] ${autoSpeak ? "text-[#2A9D8F]" : "text-[#6B6A3A]"}`}
+              className={`p-2 rounded-full transition-colors ${autoSpeak ? "text-cyan-300 bg-white/5" : "text-slate-400 hover:bg-white/10"}`}
               aria-label={autoSpeak ? "Disable voice replies" : "Enable voice replies"}
               title={autoSpeak ? "Voice replies on" : "Voice replies off"}
               data-testid="auto-speak-toggle"
             >
               {autoSpeak ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-            </Button>
+            </button>
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="rounded-full border-[#E5E1D8] bg-white/80 text-[#264653] gap-2 h-9 px-3 hover:bg-[#F0EDE5]"
+                <button
+                  className="flex items-center gap-2 px-3 py-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-sm text-white transition-colors"
                   aria-label="Choose AI voice"
                   data-testid="voice-selector"
                 >
-                  <Sparkles className="w-4 h-4 text-[#E76F51]" />
-                  <span className="text-sm hidden sm:inline">{VOICES.find((v) => v.id === voice)?.name || "Voice"}</span>
-                </Button>
+                  <AudioLines className="w-4 h-4 text-cyan-300" />
+                  <span className="hidden sm:inline">{currentVoice}</span>
+                  <ChevronDown className="w-3.5 h-3.5 opacity-60" />
+                </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuContent align="end" className="w-48 bg-black/80 backdrop-blur-xl border-white/10 text-white">
                 <DropdownMenuLabel>AI voice</DropdownMenuLabel>
-                <DropdownMenuSeparator />
+                <DropdownMenuSeparator className="bg-white/10" />
                 <DropdownMenuRadioGroup
                   value={voice}
                   onValueChange={(v) => { stopSpeaking(); setVoice(v); localStorage.setItem("chatmaroc_voice", v); }}
                 >
                   {VOICES.map((v) => (
-                    <DropdownMenuRadioItem key={v.id} value={v.id} data-testid={`voice-option-${v.id}`}>
+                    <DropdownMenuRadioItem key={v.id} value={v.id} className="focus:bg-white/10 focus:text-white" data-testid={`voice-option-${v.id}`}>
                       <span className="font-medium">{v.name}</span>
-                      <span className="ml-2 text-xs text-[#6B6A3A]">{v.desc}</span>
+                      <span className="ml-2 text-xs text-slate-400">{v.desc}</span>
                     </DropdownMenuRadioItem>
                   ))}
                 </DropdownMenuRadioGroup>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={clearChat}
-              className="rounded-full text-[#6B6A3A] hover:bg-[#F0EDE5] hover:text-[#8C3F2D]"
-              aria-label="Clear conversation"
-              data-testid="clear-chat-button"
-            >
-              <Trash2 className="w-5 h-5" />
-            </Button>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Messages */}
-      <main className="flex-1 overflow-hidden">
-        <div
-          ref={scrollRef}
-          className="cm-scroll h-[calc(100vh-180px)] overflow-y-auto"
-          aria-live="polite"
-          aria-atomic="false"
-          data-testid="messages-container"
-        >
-          <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-4">
-            {messages.length === 0 ? (
-              <div className="flex flex-col items-center text-center pt-10" data-testid="empty-state">
-                <div className="w-16 h-16 rounded-3xl bg-[#264653] flex items-center justify-center shadow-lg mb-5">
-                  <Hand className="w-8 h-8 text-[#E9C46A]" />
+        {/* Chat area */}
+        <div ref={scrollRef} className="cm-scroll flex-1 overflow-y-auto scroll-smooth" aria-live="polite" aria-atomic="false" data-testid="messages-container">
+          {messages.length === 0 ? (
+            <div className="min-h-full flex flex-col items-center justify-center px-6 py-10 text-center">
+              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="max-w-3xl w-full flex flex-col items-center">
+                <div className="w-16 h-16 rounded-3xl bg-cyan-500/15 border border-cyan-400/30 flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(34,211,238,0.25)]">
+                  <Sparkles className="w-8 h-8 text-cyan-300" />
                 </div>
-                <h2 className="font-heading text-3xl sm:text-4xl text-white mb-2 drop-shadow-lg">Salam! 👋 مرحبا بيك</h2>
-                <p className="text-white/85 max-w-md mb-8 drop-shadow">
-                  Your inclusive AI assistant for Moroccan Darija, Tamazight and beyond. Type, speak, or sign — ChatMaroc understands you.
+                <h2 className="font-heading text-4xl sm:text-5xl font-light tracking-tight text-white mb-3">How can I help you?</h2>
+                <p className="text-slate-300/80 max-w-md mb-10">
+                  Your inclusive AI for Moroccan Darija, Tamazight & more. Type, speak, or sign — ChatMaroc understands you.
                 </p>
-                <div className="grid sm:grid-cols-3 gap-3 w-full">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
                   {SUGGESTIONS.map((s, i) => (
                     <button
                       key={i}
                       onClick={() => streamChat(s.label, "text")}
-                      className="text-left rounded-2xl border border-[#E5E1D8] bg-white p-4 hover:-translate-y-0.5 hover:shadow-md transition-all focus:ring-2 focus:ring-[#2A9D8F] focus:outline-none"
+                      className="p-5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all duration-200 text-left flex flex-col gap-1 hover:-translate-y-0.5"
                       data-testid={`suggestion-${i}`}
                     >
-                      <p className="text-[#2C2E33] font-medium">{s.label}</p>
-                      <p className="text-xs text-[#6B6A3A] mt-1">{s.sub}</p>
+                      <span className="text-white font-medium" dir="auto">{s.label}</span>
+                      <span className="text-xs text-slate-400">{s.sub}</span>
                     </button>
                   ))}
                 </div>
-              </div>
-            ) : (
+              </motion.div>
+            </div>
+          ) : (
+            <div className="max-w-3xl mx-auto px-4 md:px-6 pt-8 pb-44 flex flex-col gap-6">
               <AnimatePresence initial={false}>
                 {messages.map((m) => (
                   <motion.div
                     key={m.id}
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.25 }}
+                    initial={{ opacity: 0, scale: 0.97, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    transition={{ duration: 0.22 }}
                     className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"}`}
                     data-testid={`message-${m.role}`}
                   >
                     {m.role === "user" ? (
-                      <div className="bg-[#264653] text-white rounded-2xl rounded-tr-sm py-3 px-5 max-w-[85%] shadow-sm">
+                      <div className="self-end max-w-[85%] md:max-w-[75%] bg-white/10 backdrop-blur-md border border-white/10 rounded-2xl rounded-tr-sm px-4 py-3 text-white shadow-lg">
                         {(m.kind === "voice" || m.kind === "sign") && (
-                          <span className="inline-flex items-center gap-1 text-xs text-[#E9C46A] mb-1">
-                            {m.kind === "voice" ? <Volume2 className="w-3 h-3" /> : <Hand className="w-3 h-3" />}
+                          <span className="inline-flex items-center gap-1 text-xs text-cyan-300 mb-1">
+                            {m.kind === "voice" ? <Mic className="w-3 h-3" /> : <Hand className="w-3 h-3" />}
                             {m.kind === "voice" ? "Voice" : "Sign"}
                           </span>
                         )}
-                        <p className="whitespace-pre-wrap break-words">{m.content}</p>
+                        <p className="whitespace-pre-wrap break-words" dir="auto">{m.content}</p>
                       </div>
                     ) : (
-                      <div className="bg-[#F0EDE5] text-[#2C2E33] rounded-2xl rounded-tl-sm py-3 px-5 max-w-[85%] shadow-sm">
-                        {m.content ? (
-                          <>
-                            <p className="whitespace-pre-wrap break-words">{m.content}</p>
-                            <button
-                              onClick={() => speak(m.content, m.id)}
-                              className="mt-2 inline-flex items-center gap-1 text-xs text-[#264653] hover:text-[#2A9D8F] focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] rounded-full px-2 py-1 transition-colors"
-                              aria-label={speakingId === m.id ? "Stop voice" : "Play voice reply"}
-                              data-testid={`speak-button-${m.id}`}
-                            >
-                              {ttsLoadingId === m.id ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              ) : speakingId === m.id ? (
-                                <Square className="w-3.5 h-3.5" />
-                              ) : (
-                                <Volume2 className="w-3.5 h-3.5" />
-                              )}
-                              {speakingId === m.id ? "Stop" : "Listen"}
-                            </button>
-                          </>
-                        ) : (
-                          <span className="inline-flex gap-1 py-1" data-testid="typing-indicator">
-                            <span className="w-2 h-2 rounded-full bg-[#6B6A3A] animate-bounce" style={{ animationDelay: "0ms" }} />
-                            <span className="w-2 h-2 rounded-full bg-[#6B6A3A] animate-bounce" style={{ animationDelay: "150ms" }} />
-                            <span className="w-2 h-2 rounded-full bg-[#6B6A3A] animate-bounce" style={{ animationDelay: "300ms" }} />
-                          </span>
-                        )}
+                      <div className="self-start max-w-[95%] md:max-w-[85%] group">
+                        <div className="flex items-start gap-3">
+                          <div className="w-8 h-8 rounded-xl bg-cyan-500/15 border border-cyan-400/30 flex items-center justify-center shrink-0 mt-0.5">
+                            <Sparkles className="w-4 h-4 text-cyan-300" />
+                          </div>
+                          <div className="flex-1">
+                            {m.content ? (
+                              <>
+                                <p className="whitespace-pre-wrap break-words text-slate-100 leading-relaxed" dir="auto">{m.content}</p>
+                                <button
+                                  onClick={() => speak(m.content, m.id)}
+                                  className="mt-2 inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-cyan-300 transition-colors rounded-full px-2 py-1 hover:bg-white/5"
+                                  aria-label={speakingId === m.id ? "Stop voice" : "Play voice reply"}
+                                  data-testid={`speak-button-${m.id}`}
+                                >
+                                  {ttsLoadingId === m.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    : speakingId === m.id ? <Square className="w-3.5 h-3.5" />
+                                    : <Volume2 className="w-3.5 h-3.5" />}
+                                  {speakingId === m.id ? "Stop" : "Listen"}
+                                </button>
+                              </>
+                            ) : (
+                              <span className="inline-flex gap-1 py-2" data-testid="typing-indicator">
+                                <span className="w-2 h-2 rounded-full bg-cyan-300/70 animate-bounce" style={{ animationDelay: "0ms" }} />
+                                <span className="w-2 h-2 rounded-full bg-cyan-300/70 animate-bounce" style={{ animationDelay: "150ms" }} />
+                                <span className="w-2 h-2 rounded-full bg-cyan-300/70 animate-bounce" style={{ animationDelay: "300ms" }} />
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     )}
                   </motion.div>
                 ))}
               </AnimatePresence>
-            )}
-            {transcribing && (
-              <div className="flex items-center gap-2 text-sm text-[#6B6A3A] self-end" data-testid="transcribing-indicator">
-                <Loader2 className="w-4 h-4 animate-spin" /> Transcribing your voice…
-              </div>
-            )}
+              {transcribing && (
+                <div className="flex items-center gap-2 text-sm text-slate-300 self-end" data-testid="transcribing-indicator">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Transcribing your voice…
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Floating input bar */}
+        <div className="absolute bottom-0 left-0 right-0 px-4 pb-5 pt-10 bg-gradient-to-t from-[#050B14] via-[#050B14]/70 to-transparent pointer-events-none">
+          <div className="max-w-3xl mx-auto pointer-events-auto">
+            <div className="flex items-end gap-1.5 rounded-[1.75rem] bg-black/40 backdrop-blur-2xl border border-white/15 shadow-2xl px-2 py-2 focus-within:ring-1 focus-within:ring-cyan-400/50 transition-all">
+              <button
+                onClick={() => setShowCamera(true)}
+                className="shrink-0 p-3 rounded-full text-purple-300 hover:text-purple-200 hover:bg-white/10 transition-colors"
+                aria-label="Record sign language video"
+                title="Record sign language"
+                data-testid="sign-language-record-button"
+              >
+                <Camera className="w-5 h-5" />
+              </button>
+
+              <textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  e.target.style.height = "auto";
+                  e.target.style.height = Math.min(e.target.scrollHeight, 160) + "px";
+                }}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+                rows={1}
+                placeholder={`Message ChatMaroc in ${currentLangLabel}…`}
+                className="flex-1 resize-none bg-transparent outline-none py-2.5 px-1 text-white placeholder:text-slate-400 max-h-[160px]"
+                data-testid="chat-input"
+              />
+
+              <button
+                onClick={recordingAudio ? stopAudio : startAudio}
+                disabled={transcribing || streaming}
+                className={`shrink-0 p-3 rounded-full transition-colors disabled:opacity-50 ${
+                  recordingAudio ? "bg-rose-600 text-white cm-recording" : "text-rose-300 hover:text-rose-200 hover:bg-white/10"
+                }`}
+                aria-label={recordingAudio ? "Stop recording" : "Record voice message"}
+                title={recordingAudio ? "Stop" : "Voice message"}
+                data-testid="voice-record-button"
+              >
+                {recordingAudio ? <Square className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+              </button>
+
+              <button
+                onClick={handleSend}
+                disabled={!input.trim() || streaming}
+                className="shrink-0 p-3 rounded-full bg-cyan-500 hover:bg-cyan-400 text-black transition-all disabled:opacity-40 disabled:bg-white/10 disabled:text-slate-400"
+                aria-label="Send message"
+                data-testid="send-button"
+              >
+                {streaming ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+              </button>
+            </div>
+            <p className="text-center text-[11px] text-slate-400/80 mt-2">
+              ChatMaroc supports text, voice & sign language · made for everyone 🇲🇦
+            </p>
           </div>
         </div>
-      </main>
-
-      {/* Composer */}
-      <footer className="sticky bottom-0 bg-white/15 backdrop-blur-md border-t border-white/20">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4">
-          <div className="flex items-end gap-2 bg-white rounded-3xl border border-[#E5E1D8] shadow-[0_8px_32px_rgba(0,0,0,0.25)] px-3 py-2 focus-within:ring-2 focus-within:ring-[#2A9D8F] transition">
-            <button
-              onClick={() => setShowCamera(true)}
-              className="shrink-0 rounded-full p-3 bg-[#E76F51] text-white shadow-lg hover:-translate-y-0.5 transition-transform focus:ring-2 focus:ring-offset-2 focus:ring-[#E76F51] focus:outline-none"
-              aria-label="Record sign language video"
-              title="Record sign language"
-              data-testid="sign-language-record-button"
-            >
-              <Camera className="w-5 h-5" />
-            </button>
-
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => {
-                setInput(e.target.value);
-                e.target.style.height = "auto";
-                e.target.style.height = Math.min(e.target.scrollHeight, 140) + "px";
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
-              }}
-              rows={1}
-              placeholder={`Write in ${currentLangLabel}…`}
-              className="flex-1 resize-none bg-transparent outline-none py-2 text-[#2C2E33] placeholder:text-[#9b9a83] max-h-[140px]"
-              data-testid="chat-input"
-            />
-
-            <button
-              onClick={recordingAudio ? stopAudio : startAudio}
-              disabled={transcribing || streaming}
-              className={`shrink-0 rounded-full p-3 transition-transform focus:ring-2 focus:ring-[#2A9D8F] focus:outline-none disabled:opacity-50 ${
-                recordingAudio ? "bg-[#8C3F2D] text-white cm-recording" : "bg-[#F0EDE5] text-[#264653] hover:-translate-y-0.5"
-              }`}
-              aria-label={recordingAudio ? "Stop recording" : "Record voice message"}
-              title={recordingAudio ? "Stop" : "Voice message"}
-              data-testid="voice-record-button"
-            >
-              {recordingAudio ? <Square className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-            </button>
-
-            <button
-              onClick={handleSend}
-              disabled={!input.trim() || streaming}
-              className="shrink-0 rounded-full p-3 bg-[#264653] text-white hover:-translate-y-0.5 transition-transform focus:ring-2 focus:ring-offset-2 focus:ring-[#264653] focus:outline-none disabled:opacity-40 disabled:translate-y-0"
-              aria-label="Send message"
-              data-testid="send-button"
-            >
-              {streaming ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-            </button>
-          </div>
-          <p className="text-center text-xs text-white/80 mt-2 drop-shadow">
-            ChatMaroc supports text, voice & sign language · made for everyone 🇲🇦
-          </p>
-        </div>
-      </footer>
+      </div>
 
       <AnimatePresence>
         {showCamera && (
-          <SignLanguageRecorder
-            onClose={() => setShowCamera(false)}
-            onSend={handleSendSign}
-            sending={sendingSign}
-          />
+          <SignLanguageRecorder onClose={() => setShowCamera(false)} onSend={handleSendSign} sending={sendingSign} />
         )}
       </AnimatePresence>
     </div>
