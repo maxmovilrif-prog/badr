@@ -80,6 +80,7 @@ class ChatRequest(BaseModel):
 class TtsRequest(BaseModel):
     text: str
     voice: str = "nova"
+    language: str = "darija"
 
 
 # ---------- Helpers ----------
@@ -107,6 +108,34 @@ def make_chat(session_id: str, language: str, history: str) -> LlmChat:
         session_id=session_id,
         system_message=system,
     ).with_model("anthropic", "claude-sonnet-4-6")
+
+
+def _has_tifinagh(text: str) -> bool:
+    return any(0x2D30 <= ord(c) <= 0x2D7F for c in text)
+
+
+async def transliterate_for_tts(text: str) -> str:
+    """Tifinagh script is not pronounceable by TTS engines. Convert Amazigh/Tamazight
+    text written in Tifinagh into a phonetic Latin transliteration so the TTS sounds natural."""
+    if not _has_tifinagh(text):
+        return text
+    try:
+        translit = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=f"translit-{uuid.uuid4()}",
+            system_message=(
+                "You are a strict transliteration engine for Amazigh/Tamazight. "
+                "Convert any Tifinagh (ⵜⵉⴼⵉⵏⴰⵖ) text into a natural phonetic LATIN-script transliteration "
+                "that a French/Spanish text-to-speech voice can pronounce well. "
+                "Keep words already in Latin/Arabic/French as they are. "
+                "Output ONLY the transliterated text, with no quotes, labels or explanations."
+            ),
+        ).with_model("anthropic", "claude-sonnet-4-6")
+        result = await translit.send_message(UserMessage(text=text))
+        return (result or text).strip() if isinstance(result, str) else text
+    except Exception as e:
+        logger.error(f"Transliteration failed: {e}")
+        return text
 
 
 # ---------- Routes ----------
@@ -192,11 +221,12 @@ async def tts(req: TtsRequest):
     text = (req.text or "").strip()
     if not text:
         raise HTTPException(status_code=400, detail="Empty text")
-    text = text[:4000]
     voice = req.voice if req.voice in {"alloy", "ash", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer"} else "nova"
+    speak_text = await transliterate_for_tts(text)
+    speak_text = speak_text[:4000]
     try:
         engine = OpenAITextToSpeech(api_key=EMERGENT_LLM_KEY)
-        audio_bytes = await engine.generate_speech(text=text, model="tts-1", voice=voice, response_format="mp3")
+        audio_bytes = await engine.generate_speech(text=speak_text, model="tts-1", voice=voice, response_format="mp3")
         return StreamingResponse(iter([audio_bytes]), media_type="audio/mpeg")
     except Exception as e:
         logger.error(f"TTS failed: {e}")

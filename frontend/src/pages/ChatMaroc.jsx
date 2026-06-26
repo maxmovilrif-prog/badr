@@ -8,9 +8,26 @@ import { Button } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup,
+  DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { SignLanguageRecorder } from "@/components/SignLanguageRecorder";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+// Main background image. Swap this URL with the user's uploaded image when available.
+const BG_IMAGE = "https://images.unsplash.com/photo-1599859725763-4a16c9468890?crop=entropy&cs=srgb&fm=jpg&q=85&w=2000";
+
+const VOICES = [
+  { id: "nova", name: "Nova", desc: "Energetic" },
+  { id: "shimmer", name: "Shimmer", desc: "Bright" },
+  { id: "alloy", name: "Alloy", desc: "Neutral" },
+  { id: "coral", name: "Coral", desc: "Warm" },
+  { id: "onyx", name: "Onyx", desc: "Deep" },
+  { id: "sage", name: "Sage", desc: "Calm" },
+  { id: "fable", name: "Fable", desc: "Expressive" },
+];
 
 const getSessionId = () => {
   let id = localStorage.getItem("chatmaroc_session");
@@ -39,6 +56,7 @@ export default function ChatMaroc() {
   const [showCamera, setShowCamera] = useState(false);
   const [sendingSign, setSendingSign] = useState(false);
   const [autoSpeak, setAutoSpeak] = useState(true);
+  const [voice, setVoice] = useState(() => localStorage.getItem("chatmaroc_voice") || "nova");
   const [speakingId, setSpeakingId] = useState(null);
   const [ttsLoadingId, setTtsLoadingId] = useState(null);
 
@@ -84,7 +102,7 @@ export default function ChatMaroc() {
       const res = await fetch(`${API}/tts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, voice, language }),
       });
       if (!res.ok) throw new Error("TTS failed");
       const blob = await res.blob();
@@ -101,7 +119,7 @@ export default function ChatMaroc() {
     } finally {
       setTtsLoadingId(null);
     }
-  }, [speakingId, stopSpeaking]);
+  }, [speakingId, stopSpeaking, voice, language]);
 
   const streamChat = async (text, kind = "text") => {
     setStreaming(true);
@@ -236,10 +254,19 @@ export default function ChatMaroc() {
   const currentLangLabel = languages.find((l) => l.key === language)?.label || "Darija";
 
   return (
-    <div className="min-h-screen bg-[#F9F7F3] flex flex-col">
+    <div className="relative min-h-screen flex flex-col">
+      {/* Background image layer + readability overlay */}
+      <div
+        className="fixed inset-0 -z-10 bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: `url(${BG_IMAGE})` }}
+        aria-hidden="true"
+        data-testid="app-background"
+      />
+      <div className="fixed inset-0 -z-10 bg-[#1b2b30]/55 backdrop-blur-[2px]" aria-hidden="true" />
+
       {/* Header */}
       <header
-        className="sticky top-0 z-30 backdrop-blur-xl bg-white/70 border-b border-white/40"
+        className="sticky top-0 z-30 backdrop-blur-xl bg-white/75 border-b border-white/40 shadow-sm"
         data-testid="app-header"
       >
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
@@ -279,6 +306,34 @@ export default function ChatMaroc() {
             >
               {autoSpeak ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
             </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="rounded-full border-[#E5E1D8] bg-white/80 text-[#264653] gap-2 h-9 px-3 hover:bg-[#F0EDE5]"
+                  aria-label="Choose AI voice"
+                  data-testid="voice-selector"
+                >
+                  <Sparkles className="w-4 h-4 text-[#E76F51]" />
+                  <span className="text-sm hidden sm:inline">{VOICES.find((v) => v.id === voice)?.name || "Voice"}</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuLabel>AI voice</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuRadioGroup
+                  value={voice}
+                  onValueChange={(v) => { stopSpeaking(); setVoice(v); localStorage.setItem("chatmaroc_voice", v); }}
+                >
+                  {VOICES.map((v) => (
+                    <DropdownMenuRadioItem key={v.id} value={v.id} data-testid={`voice-option-${v.id}`}>
+                      <span className="font-medium">{v.name}</span>
+                      <span className="ml-2 text-xs text-[#6B6A3A]">{v.desc}</span>
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               variant="ghost"
               size="icon"
@@ -308,8 +363,8 @@ export default function ChatMaroc() {
                 <div className="w-16 h-16 rounded-3xl bg-[#264653] flex items-center justify-center shadow-lg mb-5">
                   <Hand className="w-8 h-8 text-[#E9C46A]" />
                 </div>
-                <h2 className="font-heading text-3xl sm:text-4xl text-[#2C2E33] mb-2">Salam! 👋 مرحبا بيك</h2>
-                <p className="text-[#6B6A3A] max-w-md mb-8">
+                <h2 className="font-heading text-3xl sm:text-4xl text-white mb-2 drop-shadow-lg">Salam! 👋 مرحبا بيك</h2>
+                <p className="text-white/85 max-w-md mb-8 drop-shadow">
                   Your inclusive AI assistant for Moroccan Darija, Tamazight and beyond. Type, speak, or sign — ChatMaroc understands you.
                 </p>
                 <div className="grid sm:grid-cols-3 gap-3 w-full">
@@ -391,9 +446,9 @@ export default function ChatMaroc() {
       </main>
 
       {/* Composer */}
-      <footer className="sticky bottom-0 bg-[#F9F7F3]/90 backdrop-blur-md border-t border-[#E5E1D8]">
+      <footer className="sticky bottom-0 bg-white/15 backdrop-blur-md border-t border-white/20">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4">
-          <div className="flex items-end gap-2 bg-white rounded-3xl border border-[#E5E1D8] shadow-[0_8px_32px_rgba(44,46,51,0.05)] px-3 py-2 focus-within:ring-2 focus-within:ring-[#2A9D8F] transition">
+          <div className="flex items-end gap-2 bg-white rounded-3xl border border-[#E5E1D8] shadow-[0_8px_32px_rgba(0,0,0,0.25)] px-3 py-2 focus-within:ring-2 focus-within:ring-[#2A9D8F] transition">
             <button
               onClick={() => setShowCamera(true)}
               className="shrink-0 rounded-full p-3 bg-[#E76F51] text-white shadow-lg hover:-translate-y-0.5 transition-transform focus:ring-2 focus:ring-offset-2 focus:ring-[#E76F51] focus:outline-none"
@@ -444,7 +499,7 @@ export default function ChatMaroc() {
               {streaming ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
             </button>
           </div>
-          <p className="text-center text-xs text-[#9b9a83] mt-2">
+          <p className="text-center text-xs text-white/80 mt-2 drop-shadow">
             ChatMaroc supports text, voice & sign language · made for everyone 🇲🇦
           </p>
         </div>
