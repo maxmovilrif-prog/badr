@@ -1,109 +1,117 @@
 {
-  "theme": {
-    "mode": "light",
-    "archetype": "1 (Organic & Earthy)",
-    "description": "Sunwashed Moroccan Palette mixed with Accessible Chat best practices. Warm, inclusive, and culturally grounded. Designed for clarity, emotional warmth, and high accessibility."
+  "theme": "dark",
+  "archetype": "5 (Luxury)",
+  "vibe": "Modern, premium, sleek, 'ChatDay' style, frosted glassmorphism over dark Moroccan neon background.",
+  "typography": {
+    "headings": "Outfit",
+    "body": "Figtree",
+    "weights": {
+      "headings": "font-light to font-semibold",
+      "body": "font-normal"
+    },
+    "hierarchy": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl tracking-tight",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl tracking-tight",
+      "body": "text-base leading-relaxed"
+    }
   },
   "colors": {
-    "background": "#F9F7F3",
-    "surface": "#FFFFFF",
-    "primary": "#264653",
-    "primary_foreground": "#FFFFFF",
-    "secondary": "#F0EDE5",
-    "secondary_foreground": "#2C2E33",
-    "accent_record": "#E76F51",
-    "accent_record_foreground": "#FFFFFF",
-    "border": "#E5E1D8",
-    "text_primary": "#2C2E33",
-    "text_secondary": "#6B6A3A",
-    "focus_ring": "#2A9D8F",
-    "error": "#8C3F2D"
-  },
-  "typography": {
-    "heading_font": "EB Garamond",
-    "body_font": "Figtree",
-    "scales": {
-      "h1": "text-4xl sm:text-5xl lg:text-6xl tracking-tight leading-none",
-      "h2": "text-2xl sm:text-3xl tracking-tight",
-      "h3": "text-xl sm:text-2xl",
-      "body": "text-base leading-relaxed",
-      "small": "text-sm",
-      "label": "text-xs uppercase tracking-[0.2em]"
+    "background": "bg-[#050B14] (Fallback only, rely on fixed background image)",
+    "surfaces": {
+      "glass_panel_heavy": "bg-black/60 backdrop-blur-2xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5)]",
+      "glass_panel_light": "bg-white/5 backdrop-blur-xl border border-white/10",
+      "glass_input": "bg-black/40 backdrop-blur-3xl border border-white/15 shadow-inner"
+    },
+    "text": {
+      "primary": "text-white",
+      "secondary": "text-slate-400",
+      "accent": "text-cyan-400"
+    },
+    "accent": {
+      "neon_blue": "cyan-400",
+      "neon_purple": "purple-500"
     }
   },
-  "spacing_and_layout": {
-    "strategy": "Generous Spacing Philosophy with Dashboard Bento Strategy",
-    "container_padding": "p-6 sm:p-8",
-    "chat_bubble_padding": "py-3 px-5",
-    "gap_large": "gap-8",
-    "gap_medium": "gap-4",
-    "border_radius": {
-      "cards": "rounded-2xl",
-      "buttons": "rounded-full",
-      "chat_bubbles": "rounded-2xl"
+  "layout_and_spacing": {
+    "global": "h-screen w-full flex overflow-hidden fixed inset-0 text-white font-sans",
+    "sidebar": {
+      "desktop": "w-72 flex-shrink-0 h-full border-r border-white/10 bg-black/30 backdrop-blur-2xl flex flex-col z-40 transition-all duration-300",
+      "mobile": "fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 w-72"
+    },
+    "main_content": {
+      "container": "flex-1 flex flex-col relative h-full overflow-hidden",
+      "chat_area": "flex-1 overflow-y-auto px-4 md:px-8 pt-8 pb-40 scroll-smooth flex flex-col gap-6",
+      "empty_state": "flex-1 flex flex-col items-center justify-center p-8 text-center"
+    },
+    "input_area": {
+      "container": "absolute bottom-0 left-0 right-0 p-4 md:p-8 bg-gradient-to-t from-black/80 via-black/40 to-transparent pointer-events-none",
+      "bar": "max-w-4xl mx-auto rounded-[2rem] pointer-events-auto p-2 flex items-end gap-2"
     }
   },
-  "surfaces_and_micro_themes": {
-    "chat_container": "Solid Background (#FFFFFF) with a 1px border (#E5E1D8) and soft ambient shadow (shadow-[0_8px_32px_rgba(44,46,51,0.05)]).",
-    "header": "Crystal Glassmorphism: backdrop-blur-xl bg-white/70, border-b border-white/40.",
-    "input_area": "Neumorphism base but crisp: flat background matching parent, 1px subtle border, sharp focus ring on active.",
-    "webcam_preview": "Rounded-2xl overflow-hidden shadow-lg border border-[#E5E1D8]"
+  "components": {
+    "sidebar_navigation": {
+      "description": "Left sidebar mimicking ChatDay, holding New Chat, History, Settings, Languages.",
+      "styles": "glass_panel_heavy, p-4 flex flex-col gap-4 h-full",
+      "items": {
+        "new_chat_btn": "w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 transition-all border border-white/10 text-white font-medium data-[testid='new-chat-btn']",
+        "history_list": "flex-1 overflow-y-auto space-y-1 mt-4 scrollbar-hide",
+        "history_item": "group flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-white/5 text-slate-300 hover:text-white transition-colors cursor-pointer data-[testid='history-item']",
+        "bottom_section": "mt-auto pt-4 border-t border-white/10 flex flex-col gap-2"
+      }
+    },
+    "top_bar": {
+      "description": "Subtle top bar for model/voice selection and mobile menu toggle.",
+      "styles": "h-14 px-4 flex items-center justify-between bg-black/20 backdrop-blur-md border-b border-white/5 z-30"
+    },
+    "empty_state_greeting": {
+      "description": "Centered 'How can I help you?' screen.",
+      "styles": "max-w-3xl w-full mx-auto space-y-8 flex flex-col items-center",
+      "chips_container": "grid grid-cols-1 md:grid-cols-2 gap-4 mt-8 w-full",
+      "chip": "p-5 rounded-2xl glass_panel_light hover:bg-white/10 transition-all cursor-pointer text-left border border-white/10 flex flex-col gap-2 data-[testid='suggestion-chip']"
+    },
+    "chat_message_bubbles": {
+      "user_bubble": "self-end max-w-[85%] md:max-w-[70%] bg-white/10 backdrop-blur-md border border-white/10 rounded-2xl rounded-tr-sm p-4 text-white shadow-lg",
+      "ai_bubble": "self-start max-w-[95%] md:max-w-[80%] bg-transparent p-4 text-white flex flex-col gap-3 group",
+      "actions": "flex items-center gap-2 mt-2 opacity-0 group-hover:opacity-100 transition-opacity"
+    },
+    "bottom_input_bar": {
+      "description": "Premium multiline input, rounded, floating, matching ChatDay exactly.",
+      "styles": "glass_input w-full p-2 pl-4 flex items-end gap-2 shadow-2xl relative z-40 transition-all focus-within:ring-1 focus-within:ring-white/20",
+      "textarea": "flex-1 bg-transparent border-0 text-white placeholder-slate-400 focus:ring-0 resize-none max-h-48 min-h-[44px] py-3 text-base outline-none w-full data-[testid='chat-input']",
+      "buttons": "p-3 rounded-full hover:bg-white/10 text-slate-300 hover:text-white transition-colors flex-shrink-0 flex items-center justify-center data-[testid='action-btn']",
+      "send_button": "p-3 rounded-full bg-cyan-500 hover:bg-cyan-400 text-black transition-all flex-shrink-0 flex items-center justify-center data-[testid='send-btn']",
+      "sign_language_btn": "p-3 rounded-full hover:bg-white/10 text-purple-400 hover:text-purple-300 transition-colors flex-shrink-0 flex items-center justify-center data-[testid='sign-language-btn']",
+      "voice_mic_btn": "p-3 rounded-full hover:bg-white/10 text-rose-400 hover:text-rose-300 transition-colors flex-shrink-0 flex items-center justify-center data-[testid='mic-btn']"
+    },
+    "voice_and_language_selectors": {
+      "styles": "bg-black/80 backdrop-blur-xl border border-white/10 rounded-xl text-white outline-none data-[testid='selector']"
+    }
   },
   "motion_and_interactions": {
-    "hover_states": "Buttons lift slightly (-translate-y-0.5) and shadow increases. Background darkens slightly. ALWAYS explicitly set text color on hover.",
-    "focus_states": "High contrast ring: focus:ring-2 focus:ring-[#2A9D8F] focus:outline-none.",
-    "chat_stream": "Use aria-live='polite' and aria-atomic='false'. Animate new messages sliding up (framer-motion).",
-    "recording_pulse": "When video/audio is recording, the #E76F51 button should have a continuous gentle pulsing animation (scale 1.05 and opacity 0.8 to 1)."
+    "hover_states": "All buttons and interactive elements must transition smoothly with 'transition-all duration-200 ease-in-out'. Change backgrounds via opacity (e.g., hover:bg-white/10).",
+    "focus_states": "Input areas should not have harsh outlines. Use focus-within on parent containers to subtly brighten the border.",
+    "streaming": "AI messages must appear token-by-token smoothly. Use a pulsing cursor indicator. No layout jumping.",
+    "sidebar_toggle": "Smooth slide in/out for mobile using translate-x.",
+    "animations": "Use framer-motion for mounting/unmounting components. Message bubbles should pop in slightly (scale 0.95 -> 1.0, opacity 0 -> 1)."
   },
-  "components": [
-    {
-      "name": "chat_bubble_user",
-      "classes": "bg-[#264653] text-white rounded-2xl rounded-tr-sm py-3 px-5 max-w-[85%] self-end shadow-sm"
-    },
-    {
-      "name": "chat_bubble_ai",
-      "classes": "bg-[#F0EDE5] text-[#2C2E33] rounded-2xl rounded-tl-sm py-3 px-5 max-w-[85%] self-start shadow-sm"
-    },
-    {
-      "name": "sign_language_record_button",
-      "classes": "bg-[#E76F51] text-white rounded-full p-4 shadow-lg hover:-translate-y-1 transition-transform focus:ring-2 focus:ring-offset-2 focus:ring-[#E76F51]"
-    },
-    {
-      "name": "language_selector",
-      "classes": "Shadcn Select or DropdownMenu customized, displaying current language. Focus on Darija and Tamazight."
+  "media_and_assets": {
+    "icons_library": "lucide-react",
+    "background_image": {
+      "url": "EXISTING_APP_BACKGROUND_IMAGE",
+      "description": "The app already has a custom full-screen Moroccan background image (a futuristic Moroccan riad with neon circuitry, dark blue tones) which MUST be retained. DO NOT REPLACE IT.",
+      "fallback_url": "https://images.pexels.com/photos/19046029/pexels-photo-19046029.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"
     }
-  ],
-  "accessibility": {
-    "aria_live_regions": "Apply aria-live='polite' to the chat response container.",
-    "keyboard_navigation": "Logical Tab Order: Input -> Mic Button -> Camera Button -> Send Button. Enter submits, Shift+Enter new line. Escape closes modals.",
-    "contrast": "Ensure all text meets 4.5:1 ratio. User bubble white on #264653 is > 7:1. AI bubble #2C2E33 on #F0EDE5 is > 7:1.",
-    "focus_trapping": "Trap focus inside the webcam recording modal while open."
-  },
-  "icons_strategy": {
-    "library": "lucide-react",
-    "usage": "Use simple, recognizable icons. Camera for sign language, Mic for audio, Send for text. Icons should be 20px (w-5 h-5)."
-  },
-  "media": {
-    "images": [
-      {
-        "url": "https://images.unsplash.com/photo-1549140600-78c9b8275e9d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzF8MHwxfHNlYXJjaHwxfHxtb3JvY2NhbiUyMGFyY2hpdGVjdHVyZSUyMG1pbmltYWx8ZW58MHx8fHwxNzgyNDM0NzMwfDA&ixlib=rb-4.1.0&q=85",
-        "category": "empty_state_background",
-        "description": "Minimal Moroccan architecture to be used at very low opacity (10%) or as a subtle sidebar/welcome visual to root the app in its cultural context."
-      }
-    ]
-  },
-  "testing": {
-    "attributes": "All interactive and key informational elements MUST include a data-testid attribute. Convention: kebab-case, role-based. Example: data-testid='sign-language-record-button'."
   },
   "instructions_to_main_agent": [
-    "Set up the Vite React project and FastAPI backend as specified in the problem statement.",
-    "Configure Tailwind with the specified colors and fonts (EB Garamond for headings, Figtree for body).",
-    "Install framer-motion for smooth chat bubble appearances and recording button pulse effects.",
-    "Install lucide-react for icons.",
-    "Implement the Chat Interface using a generous spacing layout (Sidebar for history/language if needed, Main for chat).",
-    "Implement the sign-language recording feature using the MediaRecorder API, previewing the webcam in a rounded container before sending. Ensure the POST endpoint /api/process-sign-language handles the .webm upload securely.",
-    "Ensure the Moroccan Darija and Tamazight language options are prominently featured.",
-    "Ensure all accessibility features (ARIA tags, focus management, semantic HTML) are strictly implemented for the deaf/mute target audience.",
-    "Use data-testid on every button, input, and chat bubble for testing."
+    "Ensure the existing custom full-screen Moroccan background image remains perfectly intact. Wrap the entire application in a container where this image is fixed as the background.",
+    "Apply 'glassmorphism' aggressively for the UI layers. This means deep background blurs (backdrop-blur-xl or 2xl) and semi-transparent dark or light fills (bg-black/40 or bg-white/5).",
+    "Mimic the chatday.ai UI: Left collapsible sidebar with a glass look. Center chat thread that scrolls under a transparent header and a floating bottom input bar.",
+    "The input bar MUST be a single pill-shaped or highly rounded box containing all actions: sign-language webcam button, multiline text input, mic button, voice picker, and send button. Use flex and items-end to handle multiline text properly.",
+    "Implement the global language selector and voice picker elegantly, likely within Shadcn UI DropdownMenus or Selects modified to have a dark glass theme.",
+    "Every interactive element MUST include a data-testid attribute in kebab-case, specifying its role.",
+    "Do NOT use pure #000000 or #ffffff for large solid backgrounds; always use transparency over the Moroccan riad image.",
+    "Use Lucide-React for all icons (Mic, Video, Send, Menu, Plus, Trash, Settings, Languages).",
+    "CRITICAL: The codebase uses .js/.jsx files (not TypeScript). Ensure all new code and modifications are written in JavaScript, avoiding TypeScript syntax entirely.",
+    "Make sure to use Framer Motion (installed in package.json) for all subtle enter/exit animations."
   ]
 }
