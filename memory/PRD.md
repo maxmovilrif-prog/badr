@@ -18,10 +18,11 @@ Build a full-stack AI assistant "ChatMaroc": React chat UI with text + voice mes
 - Text chat (streaming), voice messages (record→transcribe→chat), sign-language video recording + placeholder recognition, language selector, accessible UI.
 
 ## Implemented (2026-06)
-- GET /api/, /api/languages, /api/messages/{session_id}, DELETE /api/messages/{session_id}
-- POST /api/chat (SSE streaming, persists turns), /api/transcribe (Whisper), /api/process-sign-language (saves .webm, simulated gesture + confidence)
+- GET /api/, /api/languages (8 langs incl. Tashelhit/tamazight-souss), /api/messages/{session_id}, DELETE /api/messages/{session_id}
+- POST /api/chat (SSE streaming, persists turns), /api/transcribe (Whisper), /api/process-sign-language (saves .webm, simulated gesture + confidence), /api/tts (OpenAI tts-1 → mp3)
 - Full chat UI: empty state + suggestions, streaming bubbles + typing indicator, mic voice recording with transcription, webcam sign-language modal (record/preview/retake/send), language dropdown, clear chat.
-- Verified: 9/9 backend tests pass; all critical frontend flows pass.
+- Voice replies (TTS): per-message "Listen" button + header auto-speak toggle; assistant replies auto-play as audio. Works for Darija & Tamazight variants (Tarifit, Central Atlas, Tashelhit).
+- Verified: iteration 1 (9/9) + iteration 2 (12/12) backend tests pass; all critical frontend flows pass.
 
 ## Backlog / Remaining
 - P1: Real sign-language gesture model (currently SIMULATED placeholder per spec).

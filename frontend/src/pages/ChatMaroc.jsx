@@ -48,6 +48,7 @@ export default function ChatMaroc() {
   const audioStreamRef = useRef(null);
   const textareaRef = useRef(null);
   const ttsAudioRef = useRef(null);
+  const ttsUrlRef = useRef(null);
 
   const scrollToBottom = useCallback(() => {
     requestAnimationFrame(() => {
@@ -67,6 +68,10 @@ export default function ChatMaroc() {
       ttsAudioRef.current.pause();
       ttsAudioRef.current = null;
     }
+    if (ttsUrlRef.current) {
+      URL.revokeObjectURL(ttsUrlRef.current);
+      ttsUrlRef.current = null;
+    }
     setSpeakingId(null);
   }, []);
 
@@ -84,9 +89,10 @@ export default function ChatMaroc() {
       if (!res.ok) throw new Error("TTS failed");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
+      ttsUrlRef.current = url;
       const audio = new Audio(url);
       ttsAudioRef.current = audio;
-      audio.onended = () => { setSpeakingId(null); URL.revokeObjectURL(url); };
+      audio.onended = () => { setSpeakingId(null); URL.revokeObjectURL(url); ttsUrlRef.current = null; };
       audio.onerror = () => { setSpeakingId(null); };
       setSpeakingId(id);
       await audio.play();
