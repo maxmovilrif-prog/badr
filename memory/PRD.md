@@ -30,7 +30,13 @@ Build a full-stack AI assistant "ChatMaroc": React chat UI with text + voice mes
 - FILE UPLOAD + ANALYSIS (Gemini gemini-2.5-flash via Emergent key): /api/chat-with-file accepts images (png/jpg/webp/gif) and docs (pdf/txt/csv, ≤20MB); paperclip attach button + pending-file chip in the UI.
 - AUTO UPLOAD CLEANUP: background task deletes uploads (sign videos/audio/files) older than a configurable retention period (default 6h) every 30min + on startup; manual POST /api/admin/cleanup-uploads; retention persisted in db.settings via GET/PUT /api/settings (clamped 1h..30d).
 - UX polish: animated shimmering "Searching the web…" indicator during live web searches; Settings modal (gear icon) to pick file-retention period + clean now; premium source cards (title + snippet + domain).
-- Verified: iter 1 (9/9) + iter 2 (12/12) + iter 3 (19/19) + iter 4 (27/27) + iter 5 (30/30) backend tests pass; all critical frontend flows pass each iteration.
+- EXPORT PDF: client-side (jsPDF + html2canvas) download of the full conversation (multilingual/RTL-safe), download button in top bar.
+- SHARE read-only public link: POST /api/conversations/{id}/share|unshare + GET /api/shared/{token}; ShareModal (copy link / stop sharing) + public /share/:token page (read-only, branded, with sources).
+- Verified: iter 1-6 backend tests pass (32/32 latest); all critical frontend flows pass each iteration. Deployment readiness: PASS (no blockers).
+
+## Deployment Notes
+- Deploy-ready. CORS=*, all secrets in env. Add TAVILY_API_KEY in production env too.
+- Uploads use local/ephemeral disk; safe because files are processed within the same request and auto-cleaned. Not a blocker.
 
 ## Integrations / Keys
 - EMERGENT_LLM_KEY (Claude text, Gemini files, Whisper STT, OpenAI TTS).
