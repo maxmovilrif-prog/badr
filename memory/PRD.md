@@ -26,7 +26,13 @@ Build a full-stack AI assistant "ChatMaroc": React chat UI with text + voice mes
 - Custom full-screen background (user-provided futuristic Moroccan riad image) with cover/centered styling + dark overlay + glass header/composer for full readability.
 - PREMIUM REDESIGN (ChatDay-style, dark glassmorphism over Moroccan bg): collapsible left sidebar (New Chat + conversation history with rename/delete + language selector), top bar (model badge, voice picker, auto-speak toggle), centered "How can I help you?" empty state with suggestion chips, glass message thread, floating pill input bar (sign-language camera + text + mic + send). Fully responsive (mobile drawer). Fonts: Outfit (headings) + Figtree (body).
 - Multi-conversation backend: conversations CRUD (create/list/rename/delete) scoped by client_id; chat auto-titles a conversation from its first message; delete cascades to messages.
-- Verified: iteration 1 (9/9) + iteration 2 (12/12) + iteration 3 (19/19) backend tests pass; all critical frontend flows pass each iteration.
+- LIVE WEB SEARCH (Tavily + Claude): /api/web-search-chat streams an answer with inline [n] citations and clickable source chips; globe toggle in the input bar (gated by /api/features); sources persisted with the assistant message.
+- FILE UPLOAD + ANALYSIS (Gemini gemini-2.5-flash via Emergent key): /api/chat-with-file accepts images (png/jpg/webp/gif) and docs (pdf/txt/csv, ≤20MB); paperclip attach button + pending-file chip in the UI.
+- Verified: iter 1 (9/9) + iter 2 (12/12) + iter 3 (19/19) + iter 4 (27/27) backend tests pass; all critical frontend flows pass each iteration.
+
+## Integrations / Keys
+- EMERGENT_LLM_KEY (Claude text, Gemini files, Whisper STT, OpenAI TTS).
+- TAVILY_API_KEY (live web search) — set in backend/.env.
 
 ## Backlog / Remaining
 - P1: Real sign-language gesture model (currently SIMULATED placeholder per spec).

@@ -347,7 +347,9 @@ async def web_search_chat(req: ChatRequest):
     await touch_conversation(req.session_id, req.message)
 
     try:
-        search = await tavily_search(req.message, 6)
+        search = await asyncio.wait_for(tavily_search(req.message, 6), timeout=20)
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Web search timed out. Please try again.")
     except Exception as e:
         raise HTTPException(status_code=503, detail=str(e))
 
