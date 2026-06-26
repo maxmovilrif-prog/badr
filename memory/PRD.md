@@ -24,7 +24,9 @@ Build a full-stack AI assistant "ChatMaroc": React chat UI with text + voice mes
 - Voice replies (TTS): per-message "Listen" button + header auto-speak toggle; assistant replies auto-play as audio. Works for Darija & Tamazight variants (Tarifit, Central Atlas, Tashelhit).
 - TTS voice selection (Nova/Shimmer/Alloy/Coral/Onyx/Sage/Fable, persisted) + automatic Tifinagh→Latin transliteration before TTS for natural Tamazight pronunciation.
 - Custom full-screen background (user-provided futuristic Moroccan riad image) with cover/centered styling + dark overlay + glass header/composer for full readability.
-- Verified: iteration 1 (9/9) + iteration 2 (12/12) backend tests pass; TTS voice + transliteration verified via curl; all critical frontend flows pass.
+- PREMIUM REDESIGN (ChatDay-style, dark glassmorphism over Moroccan bg): collapsible left sidebar (New Chat + conversation history with rename/delete + language selector), top bar (model badge, voice picker, auto-speak toggle), centered "How can I help you?" empty state with suggestion chips, glass message thread, floating pill input bar (sign-language camera + text + mic + send). Fully responsive (mobile drawer). Fonts: Outfit (headings) + Figtree (body).
+- Multi-conversation backend: conversations CRUD (create/list/rename/delete) scoped by client_id; chat auto-titles a conversation from its first message; delete cascades to messages.
+- Verified: iteration 1 (9/9) + iteration 2 (12/12) + iteration 3 (19/19) backend tests pass; all critical frontend flows pass each iteration.
 
 ## Backlog / Remaining
 - P1: Real sign-language gesture model (currently SIMULATED placeholder per spec).

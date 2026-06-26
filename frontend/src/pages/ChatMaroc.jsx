@@ -70,6 +70,7 @@ export default function ChatMaroc() {
   const ttsAudioRef = useRef(null);
   const ttsUrlRef = useRef(null);
   const activeIdRef = useRef(null);
+  const creatingRef = useRef(null);
 
   useEffect(() => { activeIdRef.current = activeId; }, [activeId]);
 
@@ -117,16 +118,24 @@ export default function ChatMaroc() {
 
   const ensureConversation = async () => {
     if (activeIdRef.current) return activeIdRef.current;
-    const r = await fetch(`${API}/conversations`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ client_id: clientId }),
-    });
-    const conv = await r.json();
-    setActiveId(conv.id);
-    activeIdRef.current = conv.id;
-    setConversations((prev) => [conv, ...prev]);
-    return conv.id;
+    if (creatingRef.current) return creatingRef.current;
+    creatingRef.current = (async () => {
+      const r = await fetch(`${API}/conversations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ client_id: clientId }),
+      });
+      const conv = await r.json();
+      setActiveId(conv.id);
+      activeIdRef.current = conv.id;
+      setConversations((prev) => [conv, ...prev]);
+      return conv.id;
+    })();
+    try {
+      return await creatingRef.current;
+    } finally {
+      creatingRef.current = null;
+    }
   };
 
   const renameConversation = async (id, title) => {
