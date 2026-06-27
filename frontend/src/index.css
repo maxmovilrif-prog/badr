@@ -82,6 +82,25 @@ body {
     animation: cm-shimmer 1.8s linear infinite;
 }
 
+/* Central brand emblem — force a dedicated GPU layer and high-quality
+   resampling so the high-res logo/text downscale crisply with no halo. */
+.cm-emblem {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+}
+.cm-emblem-img {
+    image-rendering: auto;
+    image-rendering: -webkit-optimize-contrast;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    will-change: transform;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    filter: drop-shadow(0 8px 28px rgba(34, 211, 238, 0.28));
+}
+
 @layer base {
     [data-debug-wrapper="true"] {
         display: contents !important;

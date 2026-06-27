@@ -607,14 +607,18 @@ export default function ChatMaroc() {
                 initial={{ opacity: 0, scale: 0.85 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.6, ease: "easeOut" }}
-                className="relative"
+                className="relative cm-emblem"
                 data-testid="welcome-emblem"
               >
+                {/* Ambient glow kept on its own layer so the logo itself is never rasterized through a filter (stays pixel-sharp). */}
                 <div className="absolute inset-0 -z-10 blur-3xl bg-cyan-400/20 rounded-full scale-125" aria-hidden="true" />
+                <div className="absolute inset-0 -z-10 blur-2xl bg-cyan-400/10 rounded-full scale-110" aria-hidden="true" />
                 <img
                   src={LOGO}
                   alt="ChatMaroc"
-                  className="w-72 sm:w-96 object-contain select-none drop-shadow-[0_10px_40px_rgba(34,211,238,0.35)]"
+                  width={1364}
+                  height={874}
+                  className="w-72 sm:w-96 h-auto object-contain select-none cm-emblem-img"
                   draggable="false"
                 />
               </motion.div>

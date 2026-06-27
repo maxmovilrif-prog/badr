@@ -49,3 +49,6 @@ Build a full-stack AI assistant "ChatMaroc": React chat UI with text + voice mes
 
 ## Next Tasks
 - Await user feedback; consider TTS voice replies and persisting/labeling multiple conversations.
+
+## 2026-06-27
+- HD LOGO CRISPNESS: central "chatmaroc.ai" emblem now uses the high-res transparent asset (1364×874) downscaled to ~384px with GPU-layer crisp rendering (`.cm-emblem`/`.cm-emblem-img` in index.css: translateZ(0), backface-visibility, -webkit-optimize-contrast, antialiased, drop-shadow glow on its own layer). Verified via screenshot — pixel-sharp, no halo. (Preview only.)
