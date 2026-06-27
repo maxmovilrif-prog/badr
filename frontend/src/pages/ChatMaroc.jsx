@@ -102,7 +102,7 @@ export default function ChatMaroc() {
       const d = await r.json();
       if (Array.isArray(d)) setConversations(d);
       return d;
-    } catch { return []; }
+    } catch (e) { console.error("Failed to load conversations:", e); return []; }
   }, [clientId]);
 
   useEffect(() => {
@@ -118,7 +118,7 @@ export default function ChatMaroc() {
       const r = await fetch(`${API}/messages/${id}`);
       const d = await r.json();
       setMessages(Array.isArray(d) ? d : []);
-    } catch { setMessages([]); }
+    } catch (e) { console.error("Failed to load messages:", e); setMessages([]); }
   }, []);
 
   const selectConversation = (id) => {
@@ -414,7 +414,8 @@ export default function ChatMaroc() {
       const url = `${window.location.origin}/share/${d.share_token}`;
       setShareUrl(url);
       setShowShare(true);
-      try { await navigator.clipboard.writeText(url); toast.success("Share link copied"); } catch {}
+      try { await navigator.clipboard.writeText(url); toast.success("Share link copied"); }
+      catch (e) { console.error("Clipboard copy failed:", e); }
     } catch {
       toast.error("Could not create share link.");
     }
@@ -589,7 +590,7 @@ export default function ChatMaroc() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
                   {SUGGESTIONS.map((s, i) => (
                     <button
-                      key={i}
+                      key={s.label}
                       onClick={() => streamChat(s.label, "text")}
                       className="p-5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all duration-200 text-left flex flex-col gap-1 hover:-translate-y-0.5"
                       data-testid={`suggestion-${i}`}
@@ -644,7 +645,7 @@ export default function ChatMaroc() {
                                     <div className="grid sm:grid-cols-2 gap-2">
                                       {m.sources.map((s, si) => (
                                         <a
-                                          key={si}
+                                          key={s.url || si}
                                           href={s.url}
                                           target="_blank"
                                           rel="noopener noreferrer"

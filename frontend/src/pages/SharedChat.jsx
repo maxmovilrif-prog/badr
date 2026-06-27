@@ -94,7 +94,7 @@ export default function SharedChat() {
                         {m.sources && m.sources.length > 0 && (
                           <div className="mt-3 grid sm:grid-cols-2 gap-2">
                             {m.sources.map((s, si) => (
-                              <a key={si} href={s.url} target="_blank" rel="noopener noreferrer" className="block rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 p-3 transition-colors">
+                              <a key={s.url || si} href={s.url} target="_blank" rel="noopener noreferrer" className="block rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 p-3 transition-colors">
                                 <div className="flex items-center gap-2 mb-1">
                                   <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-300 text-[11px] flex items-center justify-center font-medium shrink-0">{si + 1}</span>
                                   <span className="truncate text-sm text-white font-medium flex-1">{s.title}</span>

@@ -1,0 +1,26 @@
+{
+  "summary": "Regression-only verification after lint/security cleanup pass. Backend: all 32 pytest tests in /app/backend/tests/test_chatmaroc_api.py PASSED (root, languages incl tamazight-souss, chat SSE, file chat, web-search SSE, sources, TTS, transcribe-reachable, sign-language with secrets module, conversations CRUD, share/unshare/shared GET incl 404 after unshare, settings GET/PUT, admin cleanup, features). Frontend: end-to-end Playwright run on desktop 1920x1080 confirmed: text-message streaming + Listen TTS button, web-search-toggle -> 'Searching the web…' indicator -> 6 source cards rendered, share-modal with share-url-input + copy-link-button + stop-sharing-button, settings-modal opens, sign-language-modal opens, PDF export downloaded as 'ChatMaroc-Reply_hi_in_3_words_only_please.pdf' (correct prefix, no trailing underscore, ends with .pdf). NO React 'unique key' warnings and NO uncaught console errors were emitted; the only console.error observed is the EXPECTED 'Clipboard copy failed: NotAllowedError' from handleShare's catch block (now intentionally logged per cleanup spec) in a headless context that blocks clipboard.writeText.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_chatmaroc_api.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Cosmetic only: ChatMaroc.jsx getClientId has odd formatting on line 45 (statement appears on same line as the function brace) -- harmless but worth a quick prettier pass.",
+    "No other regressions detected. secrets.randbelow(26)/100 produces uniform 0.00-0.25 added to 0.72 = range [0.72, 0.97] as intended; backend test asserts 0.5<=confidence<=1 (passing)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Not applicable (no auth)",
+  "seed_data_creation": "Test data created with TEST_ prefix in test_chatmaroc_api.py; module fixture cleans up via DELETE /api/messages/{session_id}.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All cleanup-pass items verified: (1) backend sign-language uses secrets and still returns required fields; (2) frontend silent catches now log via console.error (verified for clipboard - appeared as expected); (3) React keys for source cards use s.url and suggestion chips use s.label — zero unique-key warnings in console across send/search/share/export flows; (4) PDF filename trims trailing underscores correctly. Note for Playwright: Settings modal does NOT close on Escape key — second test run had to reload page to dismiss it before clicking other top-bar buttons. This is a minor pre-existing UX quirk, NOT a cleanup regression, so not raised as an action item. Backend test suite is fully green and reusable as regression baseline.",
+  "rca of the issue": "N/A - no regressions found."
+}

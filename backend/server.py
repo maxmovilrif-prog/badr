@@ -7,7 +7,7 @@ import os
 import json
 import time
 import logging
-import random
+import secrets
 import asyncio
 import mimetypes
 from pathlib import Path
@@ -561,8 +561,8 @@ async def process_sign_language(session_id: str = Form(...), video: UploadFile =
         "Hello / السلام", "Thank you / شكرا", "How are you? / كي داير؟",
         "Yes / واخا", "Help / عافاك عاوني", "I am happy / أنا فرحان",
     ]
-    recognized = random.choice(sample_gestures)
-    confidence = round(random.uniform(0.72, 0.97), 2)
+    recognized = secrets.choice(sample_gestures)
+    confidence = round(0.72 + secrets.randbelow(26) / 100, 2)
 
     await db.sign_uploads.insert_one({
         "id": file_id,
