@@ -18,11 +18,11 @@ import { exportConversationPdf } from "@/lib/exportPdf";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-// User-provided futuristic Moroccan riad background (kept as fixed page background).
+// Official full-screen background (set from "1.png" when provided).
 const BG_IMAGE = "https://customer-assets.emergentagent.com/job_darija-chat-ai/artifacts/iufk1c5m_Gemini_Generated_Image_hjdpn8hjdpn8hjdp.png";
 
-// Stylized Moroccan flag emblem used as the welcome-screen branding mark.
-const EMBLEM = "https://static.prod-images.emergentagent.com/jobs/7ad4c5b7-5b00-45f8-aa74-69995dcd7d52/images/ec31c171d8908bc38d52ca4c16a8f485d19b97ecfe7cd4542a4d2f4e34a22521.png";
+// Official ChatMaroc logo / core emblem (set from "2.png" when provided).
+const LOGO = "https://static.prod-images.emergentagent.com/jobs/7ad4c5b7-5b00-45f8-aa74-69995dcd7d52/images/ec31c171d8908bc38d52ca4c16a8f485d19b97ecfe7cd4542a4d2f4e34a22521.png";
 
 const VOICES = [
   { id: "nova", name: "Nova", desc: "Energetic" },
@@ -32,13 +32,6 @@ const VOICES = [
   { id: "onyx", name: "Onyx", desc: "Deep" },
   { id: "sage", name: "Sage", desc: "Calm" },
   { id: "fable", name: "Fable", desc: "Expressive" },
-];
-
-const SUGGESTIONS = [
-  { label: "كيفاش نطيب طاجين؟", sub: "How do I cook a tajine?" },
-  { label: "ⵎⴰⵏ ⴰⵢ ⵜⴻⵍⵍⵉⴷ?", sub: "Greet me in Tamazight" },
-  { label: "Raconte-moi un proverbe marocain", sub: "A Moroccan proverb" },
-  { label: "Plan a 3-day trip to Marrakech", sub: "Travel ideas" },
 ];
 
 const domainOf = (url) => {
@@ -610,40 +603,21 @@ export default function ChatMaroc() {
         <div ref={scrollRef} className="cm-scroll flex-1 overflow-y-auto scroll-smooth" aria-live="polite" aria-atomic="false" data-testid="messages-container">
           {messages.length === 0 ? (
             <div className="min-h-full flex flex-col items-center justify-center px-6 py-10 text-center">
-              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="max-w-3xl w-full flex flex-col items-center">
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.5, ease: "easeOut" }}
-                  className="relative mb-7"
-                  data-testid="welcome-emblem"
-                >
-                  <div className="absolute inset-0 -z-10 blur-3xl bg-cyan-400/25 rounded-full scale-90" aria-hidden="true" />
-                  <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full overflow-hidden ring-1 ring-white/10 drop-shadow-[0_10px_34px_rgba(34,211,238,0.4)]">
-                    <img
-                      src={EMBLEM}
-                      alt="ChatMaroc emblem"
-                      className="w-full h-full object-cover scale-[1.22] select-none"
-                      draggable="false"
-                    />
-                  </div>
-                </motion.div>
-                <h2 className="font-heading text-4xl sm:text-5xl font-light tracking-tight text-white mb-3">How can I help you?</h2>
-                <p className="text-slate-300/80 max-w-md mb-10">
-                  Your inclusive AI for Moroccan Darija, Tamazight & more. Type, speak, or sign — ChatMaroc understands you.
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
-                  {SUGGESTIONS.map((s, i) => (
-                    <button
-                      key={s.label}
-                      onClick={() => streamChat(s.label, "text")}
-                      className="p-5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all duration-200 text-left flex flex-col gap-1 hover:-translate-y-0.5"
-                      data-testid={`suggestion-${i}`}
-                    >
-                      <span className="text-white font-medium" dir="auto">{s.label}</span>
-                      <span className="text-xs text-slate-400">{s.sub}</span>
-                    </button>
-                  ))}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.85 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.6, ease: "easeOut" }}
+                className="relative"
+                data-testid="welcome-emblem"
+              >
+                <div className="absolute inset-0 -z-10 blur-3xl bg-cyan-400/20 rounded-full scale-110" aria-hidden="true" />
+                <div className="w-40 h-40 sm:w-52 sm:h-52 rounded-full overflow-hidden ring-1 ring-white/10 drop-shadow-[0_12px_44px_rgba(34,211,238,0.4)]">
+                  <img
+                    src={LOGO}
+                    alt="ChatMaroc"
+                    className="w-full h-full object-cover scale-[1.22] select-none"
+                    draggable="false"
+                  />
                 </div>
               </motion.div>
             </div>
