@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
-const LOGO = "https://customer-assets.emergentagent.com/job_darija-chat-ai/artifacts/72i0qb4k_2.png";
+const LOGO = "/chatmaroc-logo.png";
 
 const NavItem = ({ icon: Icon, label, onClick, active, testid }) => (
   <button
@@ -48,7 +48,7 @@ export const Sidebar = ({
     <div className="h-full flex flex-col p-3 gap-2" data-testid="sidebar">
       {/* Brand */}
       <div className="flex items-center gap-3 px-2 py-3">
-        <div className="w-10 h-10 rounded-xl bg-white p-1 ring-1 ring-white/20 shadow-[0_0_18px_rgba(34,211,238,0.25)] shrink-0">
+        <div className="w-10 h-10 shrink-0 flex items-center justify-center drop-shadow-[0_0_12px_rgba(34,211,238,0.3)]">
           <img src={LOGO} alt="ChatMaroc" className="w-full h-full object-contain" draggable="false" />
         </div>
         <div>
