@@ -12,14 +12,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Sidebar } from "@/components/Sidebar";
 import { SignLanguageRecorder } from "@/components/SignLanguageRecorder";
+import { CyberBackground } from "@/components/CyberBackground";
 import { SettingsModal } from "@/components/SettingsModal";
 import { ShareModal } from "@/components/ShareModal";
 import { exportConversationPdf } from "@/lib/exportPdf";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
-
-// Official full-screen background (set from "1.png").
-const BG_IMAGE = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1920&auto=format&fit=crop";
 
 // Official ChatMaroc logo (transparent, chatmaroc.ai branding).
 const LOGO = "/chatmaroc-logo.png";
@@ -449,9 +447,8 @@ export default function ChatMaroc() {
 
   return (
     <div className="fixed inset-0 flex overflow-hidden text-white font-body">
-      {/* Background image + overlay */}
-      <div className="fixed inset-0 -z-10 bg-cover bg-center" style={{ backgroundImage: `url(${BG_IMAGE})` }} aria-hidden="true" data-testid="app-background" />
-      <div className="fixed inset-0 -z-10 bg-[#050B14]/70" aria-hidden="true" />
+      {/* Dark cyberpunk background with smooth purple/blue gradient waves */}
+      <CyberBackground />
 
       {/* Sidebar - desktop */}
       <aside className="hidden md:flex w-72 flex-shrink-0 h-full border-r border-white/10 bg-black/30 backdrop-blur-2xl z-40">

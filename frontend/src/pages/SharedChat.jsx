@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Sparkles, Hand, Mic, Paperclip, Globe, ExternalLink, ArrowRight, Loader2 } from "lucide-react";
+import { CyberBackground } from "@/components/CyberBackground";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
-const BG_IMAGE = "https://customer-assets.emergentagent.com/job_darija-chat-ai/artifacts/iufk1c5m_Gemini_Generated_Image_hjdpn8hjdpn8hjdp.png";
 
 const domainOf = (url) => {
   try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; }
@@ -23,8 +23,7 @@ export default function SharedChat() {
 
   return (
     <div className="min-h-screen relative text-white font-body">
-      <div className="fixed inset-0 -z-10 bg-cover bg-center" style={{ backgroundImage: `url(${BG_IMAGE})` }} aria-hidden="true" />
-      <div className="fixed inset-0 -z-10 bg-[#050B14]/75" aria-hidden="true" />
+      <CyberBackground />
 
       <header className="sticky top-0 z-30 bg-black/30 backdrop-blur-xl border-b border-white/10">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">

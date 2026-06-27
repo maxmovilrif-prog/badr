@@ -60,6 +60,17 @@ body {
 
 .font-heading { font-family: 'Outfit', sans-serif; }
 
+/* Dark cyberpunk base (deep navy-purple). The flowing gradient waves are drawn
+   as crisp SVG on top in <CyberBackground/>. */
+.cm-bg {
+    background-color: #05060f;
+    background-image:
+        radial-gradient(900px 520px at 12% 6%, rgba(124, 58, 237, 0.22), transparent 60%),
+        radial-gradient(900px 600px at 88% 14%, rgba(37, 99, 235, 0.20), transparent 62%),
+        radial-gradient(1000px 700px at 50% 108%, rgba(34, 211, 238, 0.12), transparent 65%),
+        linear-gradient(165deg, #0a0820 0%, #070414 50%, #04050e 100%);
+}
+
 @keyframes cm-pulse-ring {
     0% { box-shadow: 0 0 0 0 rgba(231,111,81,0.5); }
     70% { box-shadow: 0 0 0 14px rgba(231,111,81,0); }
