@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 
-const LOGO = "/chatmaroc-logo.png";
+const LOGO = "/chatmaroc-lego.png";
 
 const ENTER = { opacity: 0, scale: 0.85 };
 const SHOW = { opacity: 1, scale: 1 };
@@ -14,15 +14,14 @@ export const WelcomeScreen = () => (
       className="relative cm-emblem"
       data-testid="welcome-emblem"
     >
-      {/* Ambient glow on its own layer so the logo is never rasterized through a filter (stays pixel-sharp). */}
-      <div className="absolute inset-0 -z-10 blur-3xl bg-cyan-400/20 rounded-full scale-125" aria-hidden="true" />
-      <div className="absolute inset-0 -z-10 blur-2xl bg-cyan-400/10 rounded-full scale-110" aria-hidden="true" />
+      {/* Ambient glow behind the framed LEGO hero. */}
+      <div className="absolute -inset-6 -z-10 blur-3xl bg-cyan-400/20 rounded-[2rem]" aria-hidden="true" />
       <img
         src={LOGO}
         alt="ChatMaroc"
-        width={1364}
-        height={874}
-        className="w-72 sm:w-96 h-auto object-contain select-none cm-emblem-img"
+        width={1264}
+        height={848}
+        className="w-80 sm:w-[32rem] h-auto object-contain select-none cm-emblem-img rounded-3xl border border-white/10 shadow-2xl shadow-cyan-500/10"
         draggable="false"
       />
     </motion.div>
