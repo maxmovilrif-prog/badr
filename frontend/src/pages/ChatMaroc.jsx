@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import {
   Send, Mic, Square, Camera, Sparkles, Loader2, Volume2, VolumeX,
   Menu, X, ChevronDown, Hand, AudioLines, Paperclip, Globe, FileText, ExternalLink, Settings,
-  Share2, Download,
+  Share2, Download, LogIn,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup,
@@ -20,6 +20,9 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 // User-provided futuristic Moroccan riad background (kept as fixed page background).
 const BG_IMAGE = "https://customer-assets.emergentagent.com/job_darija-chat-ai/artifacts/iufk1c5m_Gemini_Generated_Image_hjdpn8hjdpn8hjdp.png";
+
+// Stylized Moroccan flag emblem used as the welcome-screen branding mark.
+const EMBLEM = "https://static.prod-images.emergentagent.com/jobs/7ad4c5b7-5b00-45f8-aa74-69995dcd7d52/images/ec31c171d8908bc38d52ca4c16a8f485d19b97ecfe7cd4542a4d2f4e34a22521.png";
 
 const VOICES = [
   { id: "nova", name: "Nova", desc: "Energetic" },
@@ -434,6 +437,15 @@ export default function ChatMaroc() {
     }
   };
 
+  // Sidebar nav wrappers
+  const navImage = () => { setSidebarOpen(false); setSearchMode(false); fileInputRef.current?.click(); };
+  const navSearch = () => { setSidebarOpen(false); toggleSearch(); };
+  const navTools = () => { setSidebarOpen(false); setShowSettings(true); };
+
+  const handleLogin = () => {
+    toast("Inicio de sesión próximamente 🔒", { description: "Las cuentas de cliente estarán disponibles pronto." });
+  };
+
   return (
     <div className="fixed inset-0 flex overflow-hidden text-white font-body">
       {/* Background image + overlay */}
@@ -449,6 +461,10 @@ export default function ChatMaroc() {
           onNew={newChat}
           onDelete={deleteConversation}
           onRename={renameConversation}
+          onImage={navImage}
+          onSearch={navSearch}
+          searchActive={searchMode}
+          onTools={navTools}
           languages={languages}
           language={language}
           onLanguageChange={setLanguage}
@@ -477,6 +493,10 @@ export default function ChatMaroc() {
                 onNew={newChat}
                 onDelete={deleteConversation}
                 onRename={renameConversation}
+                onImage={navImage}
+                onSearch={navSearch}
+                searchActive={searchMode}
+                onTools={navTools}
                 languages={languages}
                 language={language}
                 onLanguageChange={setLanguage}
@@ -572,6 +592,17 @@ export default function ChatMaroc() {
                 </DropdownMenuRadioGroup>
               </DropdownMenuContent>
             </DropdownMenu>
+
+            <div className="w-px h-6 bg-white/10 mx-1 hidden sm:block" />
+
+            <button
+              onClick={handleLogin}
+              className="inline-flex items-center gap-2 pl-3.5 pr-4 py-2 rounded-full border border-white/20 bg-white/[0.06] text-white text-sm font-medium transition-all duration-200 hover:bg-white/[0.12] hover:border-cyan-400/40 hover:scale-[1.04] active:scale-95 shadow-sm"
+              data-testid="login-button"
+            >
+              <LogIn className="w-4 h-4 text-cyan-300" />
+              <span>Iniciar sesión</span>
+            </button>
           </div>
         </header>
 
@@ -580,9 +611,23 @@ export default function ChatMaroc() {
           {messages.length === 0 ? (
             <div className="min-h-full flex flex-col items-center justify-center px-6 py-10 text-center">
               <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="max-w-3xl w-full flex flex-col items-center">
-                <div className="w-16 h-16 rounded-3xl bg-cyan-500/15 border border-cyan-400/30 flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(34,211,238,0.25)]">
-                  <Sparkles className="w-8 h-8 text-cyan-300" />
-                </div>
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.5, ease: "easeOut" }}
+                  className="relative mb-7"
+                  data-testid="welcome-emblem"
+                >
+                  <div className="absolute inset-0 -z-10 blur-3xl bg-cyan-400/25 rounded-full scale-90" aria-hidden="true" />
+                  <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full overflow-hidden ring-1 ring-white/10 drop-shadow-[0_10px_34px_rgba(34,211,238,0.4)]">
+                    <img
+                      src={EMBLEM}
+                      alt="ChatMaroc emblem"
+                      className="w-full h-full object-cover scale-[1.22] select-none"
+                      draggable="false"
+                    />
+                  </div>
+                </motion.div>
                 <h2 className="font-heading text-4xl sm:text-5xl font-light tracking-tight text-white mb-3">How can I help you?</h2>
                 <p className="text-slate-300/80 max-w-md mb-10">
                   Your inclusive AI for Moroccan Darija, Tamazight & more. Type, speak, or sign — ChatMaroc understands you.
