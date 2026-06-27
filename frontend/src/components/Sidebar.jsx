@@ -1,9 +1,11 @@
 import { motion } from "framer-motion";
 import {
   Plus, Image as ImageIcon, Search, SlidersHorizontal, History,
-  MessageSquare, Trash2, Pencil, Check, X, Sparkles, Globe,
+  MessageSquare, Trash2, Pencil, Check, X, Globe,
 } from "lucide-react";
 import { useState } from "react";
+
+const EMBLEM = "https://static.prod-images.emergentagent.com/jobs/7ad4c5b7-5b00-45f8-aa74-69995dcd7d52/images/ec31c171d8908bc38d52ca4c16a8f485d19b97ecfe7cd4542a4d2f4e34a22521.png";
 
 const NavItem = ({ icon: Icon, label, onClick, active, testid }) => (
   <button
@@ -46,8 +48,8 @@ export const Sidebar = ({
     <div className="h-full flex flex-col p-3 gap-2" data-testid="sidebar">
       {/* Brand */}
       <div className="flex items-center gap-3 px-2 py-3">
-        <div className="w-9 h-9 rounded-xl bg-cyan-500/20 border border-cyan-400/30 flex items-center justify-center shadow-[0_0_18px_rgba(34,211,238,0.25)]">
-          <Sparkles className="w-5 h-5 text-cyan-300" />
+        <div className="w-9 h-9 rounded-full overflow-hidden ring-1 ring-white/10 shadow-[0_0_16px_rgba(34,211,238,0.25)] shrink-0">
+          <img src={EMBLEM} alt="" className="w-full h-full object-cover scale-[1.22]" draggable="false" />
         </div>
         <div>
           <h1 className="font-heading text-lg font-semibold text-white leading-none">ChatMaroc</h1>
