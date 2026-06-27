@@ -50,6 +50,12 @@ CLEANUP_INTERVAL_SECONDS = int(os.environ.get('CLEANUP_INTERVAL_SECONDS', str(30
 app = FastAPI(title="ChatMaroc API")
 api_router = APIRouter(prefix="/api")
 
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 # ---------- Language config ----------
 LANGUAGES = {
     "darija": {"label": "الدارجة المغربية (Darija)", "iso": "ar"},
@@ -604,12 +610,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
 
 
 async def _cleanup_loop():
