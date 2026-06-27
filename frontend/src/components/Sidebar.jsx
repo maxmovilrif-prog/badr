@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
-const LOGO = "/chatmaroc-logo.png";
+const LOGO = "/chatmaroc-lego-icon.png";
 
 const NavItem = ({ icon: Icon, label, onClick, active, testid }) => (
   <button
