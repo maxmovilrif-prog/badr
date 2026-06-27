@@ -162,9 +162,19 @@ async def touch_conversation(conversation_id: str, last_user_message: Optional[s
     await db.conversations.update_one({"id": conversation_id}, {"$set": update})
 
 
-def make_chat(session_id: str, language: str, history: str) -> LlmChat:
+def build_system_message(language: str, history: str = "", extra: str = "") -> str:
+    """Compose the system prompt with the selected language + optional extra instructions + history."""
     lang_label = LANGUAGES.get(language, LANGUAGES["english"])["label"]
-    system = SYSTEM_PROMPT + f"\n\nThe user's selected language is: {lang_label}. Reply in this language." + history
+    return (
+        SYSTEM_PROMPT
+        + f"\n\nThe user's selected language is: {lang_label}. Reply in this language."
+        + extra
+        + history
+    )
+
+
+def make_chat(session_id: str, language: str, history: str) -> LlmChat:
+    system = build_system_message(language, history)
     return LlmChat(
         api_key=EMERGENT_LLM_KEY,
         session_id=session_id,
@@ -349,8 +359,7 @@ async def chat_with_file(
     await touch_conversation(session_id, f"📎 {filename}")
     history = await build_history_context(session_id)
 
-    lang_label = LANGUAGES.get(language, LANGUAGES["english"])["label"]
-    system = SYSTEM_PROMPT + f"\n\nThe user's selected language is: {lang_label}. Reply in this language." + history
+    system = build_system_message(language, history)
     file_chat = LlmChat(
         api_key=EMERGENT_LLM_KEY, session_id=session_id, system_message=system,
     ).with_model("gemini", "gemini-2.5-flash")
@@ -408,13 +417,13 @@ async def web_search_chat(req: ChatRequest):
 
     history = await build_history_context(req.session_id)
     lang_label = LANGUAGES.get(req.language, LANGUAGES["english"])["label"]
-    system = (
-        SYSTEM_PROMPT
-        + f"\n\nThe user's selected language is: {lang_label}. Reply in this language."
-        + "\n\nYou are given LIVE web search results. Answer the user's question accurately using them, "
-        "synthesize a clear response, and cite sources inline using bracket numbers like [1], [2] that match "
-        "the numbered results. Prefer recent, reliable information."
-        + history
+    system = build_system_message(
+        req.language, history,
+        extra=(
+            "\n\nYou are given LIVE web search results. Answer the user's question accurately using them, "
+            "synthesize a clear response, and cite sources inline using bracket numbers like [1], [2] that match "
+            "the numbered results. Prefer recent, reliable information."
+        ),
     )
     chat_client = LlmChat(
         api_key=EMERGENT_LLM_KEY, session_id=req.session_id, system_message=system,

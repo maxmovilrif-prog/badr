@@ -5,7 +5,9 @@ const esc = (s = "") =>
   String(s)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 
 export const exportConversationPdf = async (title, messages) => {
   const safeTitle = (title || "ChatMaroc conversation").trim();

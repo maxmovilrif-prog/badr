@@ -1,0 +1,1 @@
+ChatMaroc is a Moroccan AI chat platform. It supports Darija, Tamazight, Arabic, French, English and Spanish. The capital of Morocco is Rabat.

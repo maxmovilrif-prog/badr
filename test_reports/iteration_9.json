@@ -1,0 +1,54 @@
+{
+  "summary": "Post-refactor regression testing (ChatMaroc.jsx split into ChatHeader/WelcomeScreen/MessageList/ChatComposer + useTextToSpeech hook; backend build_system_message() helper extraction). Backend: 32/32 pytest cases PASS including the 3 refactored endpoints (/api/chat, /api/chat-with-file, /api/web-search-chat). Frontend: full Playwright sweep at 1440x900 covering all data-testids in the review request — every flow passes (text streaming, welcome screen hide/show, cyber background, web search toggle+chip, voice selector w/ 7 options, auto-speak toggle, sign-language modal open/close, share modal + public /share/:token render, PDF export download, rename + delete conversation, settings modal). No console errors. No regressions detected from the refactor.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_results_detail": {
+    "backend_pytest": {
+      "total": 32, "passed": 32, "failed": 0,
+      "refactored_endpoints": {
+        "/api/chat": "PASS (SSE streams Darija reply, empty -> 400)",
+        "/api/chat-with-file": "PASS (txt summary, png vision, unsupported -> 415, empty -> 400, kind=file persisted)",
+        "/api/web-search-chat": "PASS (sources event, deltas, [n] citations, sources persisted on assistant msg)"
+      },
+      "other": "languages(8), conversations CRUD, messages list/clear, sign-language mock, transcribe reachable, TTS (mp3 header), settings get/put + clamps, admin cleanup, share/unshare/shared flow incl. idempotent share token"
+    },
+    "frontend_ui": {
+      "data_testids_present": ["app-background","welcome-emblem","export-pdf-button","share-button","settings-button","login-button","auto-speak-toggle","voice-selector","chat-input","send-button","attach-file-button","web-search-toggle","sign-language-record-button","voice-record-button","file-input","nav-new-chat","nav-image","nav-search","nav-tools","language-selector"],
+      "text_chat_streaming": "PASS (assistant msg streamed, history-item created)",
+      "welcome_screen": "PASS (emblem visible on fresh chat, hidden after messages)",
+      "cyber_background": "PASS (data-testid app-background on both main and shared pages)",
+      "web_search_toggle": "PASS (search-mode-chip 'Web search on' appears on toggle, removed on second toggle)",
+      "voice_selector": "PASS (dropdown opens, 7 voice-option-* items: nova/shimmer/alloy/coral/onyx/sage/fable)",
+      "auto_speak_toggle": "PASS (clickable, no errors)",
+      "settings_modal": "PASS (settings-button opens settings-modal; settings-close-button closes it)",
+      "sign_language_modal": "PASS (sign-language-record-button opens, sign-language-close-button closes)",
+      "login_button": "PASS (no navigation, clicks cleanly)",
+      "rename_flow": "PASS (rename-conversation-btn -> rename-input -> rename-confirm updates sidebar title)",
+      "delete_flow": "PASS (delete-conversation-btn removes item and shows 'Conversation deleted' toast)",
+      "share_flow": "PASS (share-modal opens with share-url-input populated, public /share/:token renders shared-messages with cyber background + 2 child message rows)",
+      "pdf_export": "PASS (export-pdf-button initiates download: 'ChatMaroc-Just_answer_ok.pdf')",
+      "speak_button": "PASS (speak-button-* present on assistant messages)",
+      "console_errors": 0
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_chatmaroc_api.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Refactor is clean: ChatMaroc.jsx is now ~520 lines, components are well-scoped, and the new useTextToSpeech hook owns its own state (speakingId/ttsLoadingId).",
+    "Backend build_system_message() helper successfully de-duplicates the SYSTEM_PROMPT + language label + extra + history assembly across /api/chat, /api/chat-with-file, /api/web-search-chat. All three endpoints verified to still produce language-aware SSE streams.",
+    "The new SSE parser in consumeStream() correctly wraps JSON.parse in try/catch and skips malformed chunks instead of aborting — good resilience improvement.",
+    "Minor: test file /app/backend/tests/test_chatmaroc_api.py has a hardcoded fallback URL (line 10) that violates the env-only rule — non-blocking since REACT_APP_BACKEND_URL is always set, but worth tightening to fail-fast.",
+    "Minor: server.py logger is defined at line 612 but referenced inside functions earlier (e.g. tavily_search via touch_conversation cascade and transliterate_for_tts at line 209). Python late-binding makes this work at runtime, but moving logging.basicConfig + logger above first use would be cleaner."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (32/32)", "frontend": "100% (all review-request bullets verified)"},
+  "test_credentials": "N/A (no auth in this app; clientId auto-generated in localStorage)",
+  "seed_data_creation": "Test sessions and conversations are created with TEST_ prefix and cleaned up by pytest teardown.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Refactor regression complete. If main agent makes further UI changes, note that data-testid naming uses '-button' suffix in some places (settings-close-button, share-close-button, sign-language-close-button) and not '-close'. history-item uses exact testid 'history-item' (no per-id suffix). Backend pytest suite at /app/backend/tests/test_chatmaroc_api.py is the source of truth for API regression and runs in ~51s.",
+  "rca of the issue": "No bugs found. Refactor produced no regressions in any of the 14 review-request bullets."
+}
