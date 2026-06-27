@@ -18,8 +18,8 @@ import { exportConversationPdf } from "@/lib/exportPdf";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-// Official full-screen background (set from "1.png" when provided).
-const BG_IMAGE = "https://customer-assets.emergentagent.com/job_darija-chat-ai/artifacts/iufk1c5m_Gemini_Generated_Image_hjdpn8hjdpn8hjdp.png";
+// Official full-screen background (set from "1.png").
+const BG_IMAGE = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1920&auto=format&fit=crop";
 
 // Official ChatMaroc logo / core emblem (set from "2.png" when provided).
 const LOGO = "https://static.prod-images.emergentagent.com/jobs/7ad4c5b7-5b00-45f8-aa74-69995dcd7d52/images/ec31c171d8908bc38d52ca4c16a8f485d19b97ecfe7cd4542a4d2f4e34a22521.png";
@@ -615,7 +615,7 @@ export default function ChatMaroc() {
                   <img
                     src={LOGO}
                     alt="ChatMaroc"
-                    className="w-full h-full object-cover scale-[1.22] select-none"
+                    className="w-full h-full object-cover scale-[1.5] select-none"
                     draggable="false"
                   />
                 </div>

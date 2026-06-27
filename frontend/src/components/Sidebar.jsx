@@ -49,7 +49,7 @@ export const Sidebar = ({
       {/* Brand */}
       <div className="flex items-center gap-3 px-2 py-3">
         <div className="w-9 h-9 rounded-full overflow-hidden ring-1 ring-white/10 shadow-[0_0_16px_rgba(34,211,238,0.25)] shrink-0">
-          <img src={EMBLEM} alt="" className="w-full h-full object-cover scale-[1.22]" draggable="false" />
+          <img src={EMBLEM} alt="" className="w-full h-full object-cover scale-[1.5]" draggable="false" />
         </div>
         <div>
           <h1 className="font-heading text-lg font-semibold text-white leading-none">ChatMaroc</h1>
