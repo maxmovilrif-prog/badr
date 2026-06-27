@@ -52,3 +52,4 @@ Build a full-stack AI assistant "ChatMaroc": React chat UI with text + voice mes
 
 ## 2026-06-27
 - HD LOGO CRISPNESS: central "chatmaroc.ai" emblem now uses the high-res transparent asset (1364×874) downscaled to ~384px with GPU-layer crisp rendering (`.cm-emblem`/`.cm-emblem-img` in index.css: translateZ(0), backface-visibility, -webkit-optimize-contrast, antialiased, drop-shadow glow on its own layer). Verified via screenshot — pixel-sharp, no halo. (Preview only.)
+- CHAT "CONNECTION ERROR" HARDENING: backend/routing/CORS/env all verified healthy (5/5 curl + browser streams OK). Root cause of the intermittent generic error was an unguarded `JSON.parse` per SSE chunk in `consumeStream` (a partial/malformed chunk aborted the whole stream). Wrapped parse in try/catch (skip bad chunks) and surfaced the real error message instead of "Connection error." Verified chat streams with 0 console errors. (Preview only.)

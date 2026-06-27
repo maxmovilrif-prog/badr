@@ -217,7 +217,13 @@ export default function ChatMaroc() {
       for (const part of parts) {
         const line = part.trim();
         if (!line.startsWith("data:")) continue;
-        const payload = JSON.parse(line.slice(5).trim());
+        let payload;
+        try {
+          payload = JSON.parse(line.slice(5).trim());
+        } catch {
+          // Skip a partial/malformed SSE chunk instead of aborting the whole stream.
+          continue;
+        }
         if (payload.delta) {
           fullText += payload.delta;
           setMessages((prev) => prev.map((m) => m.id === aiId ? { ...m, content: m.content + payload.delta } : m));
@@ -248,8 +254,10 @@ export default function ChatMaroc() {
       loadConversations();
       if (autoSpeak && fullText.trim()) speak(fullText, aiId);
     } catch (e) {
-      toast.error(typeof e?.message === "string" ? e.message : "Could not reach ChatMaroc.");
-      setMessages((prev) => prev.map((m) => m.id === aiId ? { ...m, content: m.content || "⚠️ Connection error." } : m));
+      console.error("Chat stream failed:", e);
+      const msg = typeof e?.message === "string" && e.message ? e.message : "Could not reach ChatMaroc.";
+      toast.error(msg);
+      setMessages((prev) => prev.map((m) => m.id === aiId ? { ...m, content: m.content || `⚠️ ${msg}` } : m));
     } finally {
       setStreaming(false);
       setSearchingMsgId(null);
