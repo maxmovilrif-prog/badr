@@ -21,8 +21,8 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 // Official full-screen background (set from "1.png").
 const BG_IMAGE = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1920&auto=format&fit=crop";
 
-// Official ChatMaroc logo / core emblem (set from "2.png" when provided).
-const LOGO = "https://static.prod-images.emergentagent.com/jobs/7ad4c5b7-5b00-45f8-aa74-69995dcd7d52/images/ec31c171d8908bc38d52ca4c16a8f485d19b97ecfe7cd4542a4d2f4e34a22521.png";
+// Official ChatMaroc logo / core emblem (chatmaroc.ai branding).
+const LOGO = "https://customer-assets.emergentagent.com/job_darija-chat-ai/artifacts/72i0qb4k_2.png";
 
 const VOICES = [
   { id: "nova", name: "Nova", desc: "Energetic" },
@@ -610,12 +610,12 @@ export default function ChatMaroc() {
                 className="relative"
                 data-testid="welcome-emblem"
               >
-                <div className="absolute inset-0 -z-10 blur-3xl bg-cyan-400/20 rounded-full scale-110" aria-hidden="true" />
-                <div className="w-40 h-40 sm:w-52 sm:h-52 rounded-full overflow-hidden ring-1 ring-white/10 drop-shadow-[0_12px_44px_rgba(34,211,238,0.4)]">
+                <div className="absolute inset-0 -z-10 blur-3xl bg-cyan-400/25 rounded-full scale-125" aria-hidden="true" />
+                <div className="bg-white rounded-[2rem] p-6 sm:p-8 shadow-[0_24px_80px_rgba(0,0,0,0.5)] ring-1 ring-white/30">
                   <img
                     src={LOGO}
                     alt="ChatMaroc"
-                    className="w-full h-full object-cover scale-[1.5] select-none"
+                    className="w-48 h-48 sm:w-60 sm:h-60 object-contain select-none"
                     draggable="false"
                   />
                 </div>
