@@ -14,14 +14,14 @@ export const WelcomeScreen = () => (
       className="relative cm-emblem"
       data-testid="welcome-emblem"
     >
-      {/* Ambient glow behind the framed LEGO hero. */}
-      <div className="absolute -inset-6 -z-10 blur-3xl bg-cyan-400/20 rounded-[2rem]" aria-hidden="true" />
+      {/* Ambient glow on its own layer so the logo is never rasterized through a filter (stays pixel-sharp). */}
+      <div className="absolute inset-0 -z-10 blur-3xl bg-cyan-400/20 rounded-full scale-110" aria-hidden="true" />
       <img
         src={LOGO}
         alt="ChatMaroc"
-        width={1264}
-        height={848}
-        className="w-80 sm:w-[32rem] h-auto object-contain select-none cm-emblem-img rounded-3xl border border-white/10 shadow-2xl shadow-cyan-500/10"
+        width={1078}
+        height={763}
+        className="w-80 sm:w-[30rem] h-auto object-contain select-none cm-emblem-img"
         draggable="false"
       />
     </motion.div>
